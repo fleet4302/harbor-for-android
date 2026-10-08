@@ -5,12 +5,18 @@ import com.example.data.local.WatchHistoryEntity
 import com.example.data.local.WatchlistDao
 import com.example.data.local.WatchlistEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class VaultRepository(
     private val historyDao: WatchHistoryDao,
     private val watchlistDao: WatchlistDao
 ) {
-    val continueWatching: Flow<List<WatchHistoryEntity>> = historyDao.getContinueWatching()
+    val continueWatching: Flow<List<WatchHistoryEntity>> = historyDao.getAllHistory().map { list ->
+        list.groupBy { it.mediaId }
+            .mapValues { (_, entries) -> entries.maxByOrNull { it.lastWatchedTimestamp }!! }
+            .values
+            .sortedByDescending { it.lastWatchedTimestamp }
+    }
     val allHistory: Flow<List<WatchHistoryEntity>> = historyDao.getAllHistory()
     val allWatchlist: Flow<List<WatchlistEntity>> = watchlistDao.getAllWatchlist()
 

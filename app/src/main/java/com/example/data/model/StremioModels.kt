@@ -91,24 +91,52 @@ data class StremioVideo(
     val released: String? = null,
     val thumbnail: String? = null,
     val overview: String? = null,
+    val description: String? = null,
     val stream: StremioStreamItem? = null
 ) {
     val computedTitle: String
         get() {
-            val raw = (title?.ifBlank { null } ?: name?.ifBlank { null })?.trim() ?: ""
+            val rawName = (title?.ifBlank { null }
+                ?: name?.ifBlank { null }
+                ?: description?.ifBlank { null }
+                ?: overview?.lines()?.firstOrNull()?.takeIf { it.length < 50 && !it.contains(".") }
+            )?.trim() ?: ""
+
             val epNum = episode ?: 1
-            if (raw.isBlank()) return "Episode $epNum"
-            if (raw.equals("Episode $epNum", ignoreCase = true) ||
-                raw.equals("episode $epNum", ignoreCase = true) ||
-                raw.equals("Ep $epNum", ignoreCase = true) ||
-                raw.equals("E$epNum", ignoreCase = true) ||
-                raw.equals("$epNum", ignoreCase = true)) {
+
+            if (rawName.isBlank()) return "Episode $epNum"
+
+            var clean = rawName
+                .replace(Regex("(?i)Episode\\s+Episode"), "Episode")
+                .trim()
+
+            val patternsToStrip = listOf(
+                Regex("(?i)^Episode\\s*\\d+\\s*[:\\-•.]\\s*"),
+                Regex("(?i)^Ep\\s*\\d+\\s*[:\\-•.]\\s*"),
+                Regex("(?i)^E\\d+\\s*[:\\-•.]\\s*"),
+                Regex("(?i)^S\\d+E\\d+\\s*[:\\-•.]\\s*"),
+                Regex("^\\d+\\s*[:\\-•.]\\s*")
+            )
+
+            for (pattern in patternsToStrip) {
+                val replaced = pattern.replace(clean, "").trim()
+                if (replaced.isNotBlank() && !replaced.equals(clean, ignoreCase = true)) {
+                    clean = replaced
+                    break
+                }
+            }
+
+            if (clean.isBlank() ||
+                clean.equals("Episode $epNum", ignoreCase = true) ||
+                clean.equals("Episode", ignoreCase = true) ||
+                clean.equals("Ep $epNum", ignoreCase = true) ||
+                clean.equals("E$epNum", ignoreCase = true) ||
+                clean.equals("$epNum", ignoreCase = true)
+            ) {
                 return "Episode $epNum"
             }
-            if (raw.startsWith("Episode $epNum - ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter("- ").trim()}"
-            if (raw.startsWith("Episode $epNum: ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter(": ").trim()}"
-            if (raw.startsWith("E$epNum - ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter("- ").trim()}"
-            return "E$epNum • $raw"
+
+            return "E$epNum • $clean"
         }
 }
 

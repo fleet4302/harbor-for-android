@@ -39,7 +39,6 @@ enum class HarborNavTab(val title: String, val icon: ImageVector) {
     DISCOVER("Discover", Icons.Default.Home),
     SEARCH("Search", Icons.Default.Search),
     VAULT("Vault", Icons.Default.BookmarkBorder),
-    ADDONS("Addons", Icons.Default.Extension),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 

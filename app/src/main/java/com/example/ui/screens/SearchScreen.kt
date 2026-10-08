@@ -64,7 +64,7 @@ fun SearchScreen(
     val scope = rememberCoroutineScope()
 
     var searchQuery by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf<String?>("movie") }
+    var selectedType by remember { mutableStateOf<String?>(null) }
     var searchResults by remember { mutableStateOf<List<StremioMetaSummary>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var debounceJob by remember { mutableStateOf<Job?>(null) }

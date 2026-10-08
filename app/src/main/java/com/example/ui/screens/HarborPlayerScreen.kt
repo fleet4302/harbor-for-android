@@ -964,24 +964,36 @@ fun HarborPlayerScreen(
                                                         isSwitchingEpisode = true
                                                         val queryEpId = "${mediaId}:${ep.season ?: 1}:${ep.episode ?: 1}"
                                                         val resolved = streamResolverRepository.resolveStreams("series", queryEpId)
-                                                        isSwitchingEpisode = false
                                                         if (resolved.isNotEmpty()) {
                                                             val topStream = resolved.first()
-                                                            val url = topStream.rawStream.url ?: if (!topStream.rawStream.infoHash.isNullOrBlank()) {
+                                                            var rawUrl = topStream.rawStream.url ?: if (!topStream.rawStream.infoHash.isNullOrBlank()) {
                                                                 "magnet:?xt=urn:btih:${topStream.rawStream.infoHash}"
                                                             } else ""
-                                                            val newTitle = "${seriesDetail?.name ?: title} - ${ep.computedTitle}"
-                                                            showEpisodeDrawer = false
-                                                            onSwitchStream(
-                                                                newTitle,
-                                                                url,
-                                                                mediaId,
-                                                                ep.season,
-                                                                ep.episode,
-                                                                ep.computedTitle,
-                                                                poster,
-                                                                background
-                                                            )
+
+                                                            if (rawUrl.startsWith("magnet:")) {
+                                                                val debridRes = streamResolverRepository.resolveMagnetViaDebrid(rawUrl)
+                                                                if (debridRes.isSuccess) {
+                                                                    rawUrl = debridRes.getOrThrow()
+                                                                }
+                                                            }
+
+                                                            isSwitchingEpisode = false
+                                                            if (rawUrl.isNotBlank()) {
+                                                                val newTitle = "${seriesDetail?.name ?: title} - ${ep.computedTitle}"
+                                                                showEpisodeDrawer = false
+                                                                onSwitchStream(
+                                                                    newTitle,
+                                                                    rawUrl,
+                                                                    mediaId,
+                                                                    ep.season,
+                                                                    ep.episode,
+                                                                    ep.computedTitle,
+                                                                    poster,
+                                                                    background
+                                                                )
+                                                            }
+                                                        } else {
+                                                            isSwitchingEpisode = false
                                                         }
                                                     }
                                                 }

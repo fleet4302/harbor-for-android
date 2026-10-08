@@ -271,14 +271,34 @@ fun MediaDetailScreen(
         onBack()
     }
 
+    val historyList by vaultRepository.allHistory.collectAsState(initial = emptyList())
+    val showHistory = remember(historyList, mediaId) {
+        historyList.filter { it.mediaId == mediaId }.maxByOrNull { it.lastWatchedTimestamp }
+    }
+
     LaunchedEffect(mediaId) {
         isLoadingDetail = true
         try {
             val d = catalogRepository.getMetaDetail(mediaType, mediaId)
             detail = d
             if (d.videos != null && d.videos.isNotEmpty()) {
-                val firstEp = d.videos.firstOrNull { it.season == 1 } ?: d.videos.first()
-                selectedEpisode = firstEp
+                val lastWatch = historyList.filter { it.mediaId == mediaId }.maxByOrNull { it.lastWatchedTimestamp }
+                var targetEp: StremioVideo? = null
+                if (lastWatch != null && lastWatch.season != null && lastWatch.episode != null) {
+                    val isFinished = lastWatch.durationMs > 0 && (lastWatch.positionMs.toFloat() / lastWatch.durationMs.toFloat()) >= 0.92f
+                    if (!isFinished) {
+                        targetEp = d.videos.find { it.season == lastWatch.season && it.episode == lastWatch.episode }
+                    } else {
+                        // Find next episode
+                        targetEp = d.videos.find { it.season == lastWatch.season && it.episode == (lastWatch.episode!! + 1) }
+                            ?: d.videos.find { (it.season ?: 1) > lastWatch.season!! }
+                    }
+                }
+                if (targetEp == null) {
+                    targetEp = d.videos.firstOrNull { it.season == 1 } ?: d.videos.first()
+                }
+                selectedSeason = targetEp.season ?: 1
+                selectedEpisode = targetEp
             }
         } finally {
             isLoadingDetail = false
@@ -556,8 +576,21 @@ fun MediaDetailScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
+                            val playBtnText = remember(item.type, selectedSeason, selectedEpisode, showHistory) {
+                                if (item.type == "series" || item.type == "tv") {
+                                    val epNum = selectedEpisode?.episode ?: 1
+                                    val sNum = selectedSeason
+                                    if (showHistory != null && showHistory!!.season == sNum && showHistory!!.episode == epNum && showHistory!!.positionMs > 0) {
+                                        "RESUME S${sNum}:E${epNum}"
+                                    } else {
+                                        "PLAY S${sNum}:E${epNum}"
+                                    }
+                                } else {
+                                    if (showHistory != null && showHistory!!.positionMs > 0) "RESUME MOVIE" else "PLAY MOVIE"
+                                }
+                            }
                             Text(
-                                text = if (item.type == "series") "PLAY S${selectedSeason}:E1" else "PLAY MOVIE",
+                                text = playBtnText,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 14.sp
                             )

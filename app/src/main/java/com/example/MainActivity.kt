@@ -222,14 +222,6 @@ fun HarborApp() {
                                     }
                                 )
                             }
-                            HarborNavTab.ADDONS -> {
-                                AddonsScreen(
-                                    addonRepository = addonRepository,
-                                    stremioSession = stremioSession,
-                                    vaultRepository = vaultRepository,
-                                    streamResolverRepository = streamResolver
-                                )
-                            }
                             HarborNavTab.SETTINGS -> {
                                 SettingsScreen(
                                     currentTheme = currentThemeStyle,

@@ -355,7 +355,7 @@ class StremioApiClient {
      */
     suspend fun getLibraryItems(authKey: String): Result<List<com.example.data.model.StremioLibraryEntry>> = withContext(Dispatchers.IO) {
         try {
-            val collectionsToFetch = listOf("libraryItem", "watchState")
+            val collectionsToFetch = listOf("libraryItem", "watchState", "watched")
             val resultMap = mutableMapOf<String, com.example.data.model.StremioLibraryEntry>()
 
             for (col in collectionsToFetch) {
@@ -380,14 +380,39 @@ class StremioApiClient {
                             return@use
                         }
 
-                        val itemsArray = when {
-                            json.has("result") && json.optJSONArray("result") != null -> json.optJSONArray("result")
-                            json.has("result") && json.optJSONObject("result")?.has("items") == true -> json.optJSONObject("result")?.optJSONArray("items")
-                            else -> null
-                        } ?: return@use
+                        val rawItemsList = mutableListOf<org.json.JSONObject>()
 
-                        for (i in 0 until itemsArray.length()) {
-                            val itemObj = itemsArray.optJSONObject(i) ?: continue
+                        if (json.has("result") && !json.isNull("result")) {
+                            val resVal = json.opt("result")
+                            if (resVal is org.json.JSONArray) {
+                                for (i in 0 until resVal.length()) {
+                                    val obj = resVal.optJSONObject(i)
+                                    if (obj != null) rawItemsList.add(obj)
+                                }
+                            } else if (resVal is org.json.JSONObject) {
+                                if (resVal.has("items") && resVal.optJSONArray("items") != null) {
+                                    val arr = resVal.optJSONArray("items")!!
+                                    for (i in 0 until arr.length()) {
+                                        val obj = arr.optJSONObject(i)
+                                        if (obj != null) rawItemsList.add(obj)
+                                    }
+                                } else {
+                                    val keys = resVal.keys()
+                                    while (keys.hasNext()) {
+                                        val k = keys.next()
+                                        val obj = resVal.optJSONObject(k)
+                                        if (obj != null) {
+                                            if (!obj.has("_id") && !obj.has("id")) {
+                                                obj.put("_id", k)
+                                            }
+                                            rawItemsList.add(obj)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        for (itemObj in rawItemsList) {
                             val rawId = itemObj.optString("_id", itemObj.optString("id", itemObj.optString("key", "")))
                             if (rawId.isBlank()) continue
 
@@ -414,12 +439,12 @@ class StremioApiClient {
 
                             val stateObj = itemObj.optJSONObject("state") ?: itemObj.optJSONObject("value")
                             if (stateObj != null) {
-                                val rawPos = stateObj.optLong("timeOffset", stateObj.optLong("time", 0L))
+                                val rawPos = stateObj.optLong("timeOffset", stateObj.optLong("time", stateObj.optLong("position", 0L)))
                                 val rawDur = stateObj.optLong("duration", 0L)
                                 posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
                                 durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
 
-                                val videoId = stateObj.optString("video_id", stateObj.optString("videoId", ""))
+                                val videoId = stateObj.optString("video_id", stateObj.optString("videoId", stateObj.optString("video", "")))
                                 if (videoId.contains(":")) {
                                     val parts = videoId.split(":")
                                     if (parts.size >= 3) {
@@ -427,12 +452,18 @@ class StremioApiClient {
                                         episode = parts[2].toIntOrNull()
                                     }
                                 }
+                                if (season == null && stateObj.has("season")) {
+                                    season = stateObj.optInt("season")
+                                }
+                                if (episode == null && stateObj.has("episode")) {
+                                    episode = stateObj.optInt("episode")
+                                }
                             }
 
                             val entryKey = if (season != null && episode != null) "$baseId:$season:$episode" else baseId
                             val existing = resultMap[entryKey]
-                            val mergedPos = if (posMs > 0) posMs else (existing?.positionMs ?: 120000L)
-                            val mergedDur = if (durMs > 0) durMs else (existing?.durationMs ?: 3600000L)
+                            val mergedPos = if (posMs > 0) posMs else (existing?.positionMs ?: 0L)
+                            val mergedDur = if (durMs > 0) durMs else (existing?.durationMs ?: 0L)
 
                             resultMap[entryKey] = com.example.data.model.StremioLibraryEntry(
                                 id = baseId,

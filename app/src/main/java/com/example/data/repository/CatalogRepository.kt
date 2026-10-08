@@ -60,18 +60,28 @@ class CatalogRepository(
         if (query.isBlank()) return@withContext emptyList()
 
         val cinemetaUrl = "https://v3-cinemeta.strem.io"
-        val targetType = type ?: "movie"
         val extra = mapOf("search" to query)
 
-        val result = apiClient.fetchCatalog(cinemetaUrl, targetType, "top", extra)
-        if (result.isSuccess && result.getOrNull()?.isNotEmpty() == true) {
-            result.getOrThrow()
-        } else {
-            // Filter local fallback
-            DefaultAddons.FALLBACK_CATALOG.filter {
-                it.name.contains(query, ignoreCase = true) ||
-                (it.genres?.any { g -> g.contains(query, ignoreCase = true) } == true)
+        if (type != null) {
+            val result = apiClient.fetchCatalog(cinemetaUrl, type, "top", extra)
+            if (result.isSuccess && result.getOrNull()?.isNotEmpty() == true) {
+                return@withContext result.getOrThrow()
             }
+        } else {
+            val movieRes = apiClient.fetchCatalog(cinemetaUrl, "movie", "top", extra)
+            val seriesRes = apiClient.fetchCatalog(cinemetaUrl, "series", "top", extra)
+
+            val movies = movieRes.getOrNull() ?: emptyList()
+            val series = seriesRes.getOrNull() ?: emptyList()
+            val combined = (movies + series).distinctBy { it.id }
+            if (combined.isNotEmpty()) {
+                return@withContext combined
+            }
+        }
+
+        DefaultAddons.FALLBACK_CATALOG.filter {
+            it.name.contains(query, ignoreCase = true) ||
+            (it.genres?.any { g -> g.contains(query, ignoreCase = true) } == true)
         }
     }
 
