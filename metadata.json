@@ -1,0 +1,6 @@
+{
+  "name": "Harbor",
+  "description": "Native Stremio client for Android with multi-addon support, live catalog discovery, stream ranking, and playback engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
