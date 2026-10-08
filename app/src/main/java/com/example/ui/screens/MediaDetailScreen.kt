@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -102,7 +103,7 @@ fun MediaDetailScreen(
     addonRepository: AddonRepository,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
-    onPlayStream: (title: String, streamUrl: String, mediaId: String, season: Int?, episode: Int?, episodeTitle: String?) -> Unit,
+    onPlayStream: (title: String, streamUrl: String, mediaId: String, season: Int?, episode: Int?, episodeTitle: String?, poster: String?, background: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val theme = LocalHarborTheme.current
@@ -130,6 +131,7 @@ fun MediaDetailScreen(
 
     fun refreshStreams(targetDetail: StremioMetaDetail) {
         scope.launch {
+            Log.d("MediaDetailScreen", "refreshStreams called for ${targetDetail.type} ${targetDetail.id} episode: ${selectedEpisode?.id}")
             isLoadingStreams = true
             try {
                 val streamQueryId = if (targetDetail.type == "series" && selectedEpisode != null) {
@@ -139,7 +141,11 @@ fun MediaDetailScreen(
                 } else {
                     targetDetail.id
                 }
+                Log.d("MediaDetailScreen", "Querying streams with ID: $streamQueryId")
                 streams = streamResolverRepository.resolveStreams(targetDetail.type, streamQueryId)
+                Log.d("MediaDetailScreen", "Found ${streams.size} streams")
+            } catch (e: Exception) {
+                Log.e("MediaDetailScreen", "Error refreshing streams", e)
             } finally {
                 isLoadingStreams = false
             }
@@ -687,7 +693,9 @@ fun MediaDetailScreen(
                                         item.id,
                                         selectedEpisode?.season,
                                         selectedEpisode?.episode,
-                                        selectedEpisode?.title
+                                        selectedEpisode?.title,
+                                        item.poster,
+                                        item.background
                                     )
                                 } else if (url.startsWith("magnet:")) {
                                     val debridInfo = streamResolverRepository.getLinkedDebridInfo()
@@ -705,7 +713,9 @@ fun MediaDetailScreen(
                                                     item.id,
                                                     selectedEpisode?.season,
                                                     selectedEpisode?.episode,
-                                                    selectedEpisode?.title
+                                                    selectedEpisode?.title,
+                                                    item.poster,
+                                                    item.background
                                                 )
                                             } else {
                                                 debridResolutionError = res.exceptionOrNull()?.message ?: "Torrent not cached in Debrid"

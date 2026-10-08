@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.data.api.DefaultAddons
 import com.example.data.api.StremioApiClient
 import com.example.data.local.AddonDao
@@ -122,15 +123,19 @@ class AddonRepository(
     }
 
     suspend fun syncAddonsFromStremioAccount(authKey: String): Result<Int> {
+        Log.d("AddonRepository", "Syncing addons with authKey: ${authKey.take(5)}...")
         val result = apiClient.getAddonCollection(authKey)
         if (result.isFailure) {
+            Log.e("AddonRepository", "Failed to fetch addons", result.exceptionOrNull())
             return Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch addons from Stremio"))
         }
 
         val addons = result.getOrThrow()
+        Log.d("AddonRepository", "Fetched ${addons.size} addons")
         var count = 0
         addons.forEachIndexed { index, item ->
             val manifest = item.manifest
+            Log.d("AddonRepository", "Processing addon: ${manifest.name} (${manifest.id})")
             val supportsCatalog = !manifest.catalogs.isNullOrEmpty()
             val supportsStream = manifest.resources?.any {
                 it.toString().contains("stream", ignoreCase = true)

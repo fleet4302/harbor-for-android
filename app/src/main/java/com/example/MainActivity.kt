@@ -46,7 +46,9 @@ sealed class HarborScreen {
         val mediaId: String,
         val season: Int? = null,
         val episode: Int? = null,
-        val episodeTitle: String? = null
+        val episodeTitle: String? = null,
+        val poster: String? = null,
+        val background: String? = null
     ) : HarborScreen()
 }
 
@@ -89,6 +91,8 @@ fun HarborApp() {
                     season = screen.season,
                     episode = screen.episode,
                     episodeTitle = screen.episodeTitle,
+                    poster = screen.poster,
+                    background = screen.background,
                     vaultRepository = vaultRepository,
                     onBack = { currentScreen = HarborScreen.Main }
                 )
@@ -108,14 +112,16 @@ fun HarborApp() {
                         currentNavTab = HarborNavTab.SETTINGS
                         currentScreen = HarborScreen.Main
                     },
-                    onPlayStream = { title, streamUrl, mediaId, season, episode, epTitle ->
+                    onPlayStream = { title, streamUrl, mediaId, season, episode, epTitle, poster, background ->
                         currentScreen = HarborScreen.Player(
                             title = title,
                             streamUrl = streamUrl,
                             mediaId = mediaId,
                             season = season,
                             episode = episode,
-                            episodeTitle = epTitle
+                            episodeTitle = epTitle,
+                            poster = poster,
+                            background = background
                         )
                     }
                 )

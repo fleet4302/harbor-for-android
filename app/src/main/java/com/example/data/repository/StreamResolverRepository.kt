@@ -170,11 +170,6 @@ class StreamResolverRepository(
             val deferreds = enabledAddons.map { addon ->
                 async {
                     var addonUrl = addon.manifestUrl
-                    if (!activeDebridKey.isNullOrBlank()) {
-                        if (addonUrl.contains("torrentio.strem.fun") && !addonUrl.contains("realdebrid=")) {
-                            addonUrl = addonUrl.replace("torrentio.strem.fun", "torrentio.strem.fun/realdebrid=$activeDebridKey")
-                        }
-                    }
                     val result = apiClient.fetchStreams(addonUrl, type, id)
                     if (result.isSuccess) {
                         result.getOrNull()?.mapNotNull { rawItem ->
