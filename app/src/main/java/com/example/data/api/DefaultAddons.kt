@@ -67,13 +67,33 @@ object DefaultAddons {
     val COMMUNITY_STORE = listOf(
         CommunityAddonListing(
             id = "community.torrentio",
-            name = "Torrentio",
-            manifestUrl = "https://torrentio.strem.fun/manifest.json",
-            description = "Torrent and Debrid streams provider for Stremio. Supports Real-Debrid, AllDebrid, Premiumize, and TorBox.",
+            name = "Torrentio Multi-Tracker",
+            manifestUrl = "https://torrentio.strem.fun/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,nyaasi|sort=qualitysize|limit=30/manifest.json",
+            description = "High-speed torrent stream aggregator supporting RARBG, 1337x, YTS, EZTV, TorrentGalaxy, and Debrid caching.",
+            category = "Streams",
+            iconUrl = null,
+            isDebridSupported = true,
+            stars = 5.0
+        ),
+        CommunityAddonListing(
+            id = "community.knightcrawler",
+            name = "KnightCrawler",
+            manifestUrl = "https://knightcrawler.elfhosted.com/manifest.json",
+            description = "High performance ELFHosted torrent & debrid stream provider with extensive tracker coverage.",
             category = "Streams",
             iconUrl = null,
             isDebridSupported = true,
             stars = 4.9
+        ),
+        CommunityAddonListing(
+            id = "community.mediafusion",
+            name = "MediaFusion",
+            manifestUrl = "https://mediafusion.elfhosted.com/manifest.json",
+            description = "Scrapes live media, movies, and TV series with real-time health checks and debrid support.",
+            category = "Streams",
+            iconUrl = null,
+            isDebridSupported = true,
+            stars = 4.8
         ),
         CommunityAddonListing(
             id = "community.tmdb",
@@ -110,6 +130,15 @@ object DefaultAddons {
             category = "Subtitles",
             iconUrl = null,
             stars = 4.9
+        ),
+        CommunityAddonListing(
+            id = "community.subdl",
+            name = "SubDL Subtitles",
+            manifestUrl = "https://subdl.strem.fun/manifest.json",
+            description = "Extensive multi-language subtitle provider for movies and series.",
+            category = "Subtitles",
+            iconUrl = null,
+            stars = 4.8
         ),
         CommunityAddonListing(
             id = "community.publicdomain",

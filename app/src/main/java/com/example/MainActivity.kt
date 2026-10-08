@@ -23,7 +23,6 @@ import com.example.data.repository.AddonRepository
 import com.example.data.repository.CatalogRepository
 import com.example.data.repository.StreamResolverRepository
 import com.example.data.repository.VaultRepository
-import com.example.data.repository.WatchPartyRepository
 import com.example.ui.components.HarborBottomNav
 import com.example.ui.components.HarborNavTab
 import com.example.ui.components.HarborTopBar
@@ -34,7 +33,6 @@ import com.example.ui.screens.MediaDetailScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.VaultScreen
-import com.example.ui.screens.WatchPartyScreen
 import com.example.ui.theme.HarborTheme
 
 sealed class HarborScreen {
@@ -67,7 +65,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HarborApp() {
     val context = LocalContext.current
-    var currentThemeStyle by remember { mutableStateOf(HarborThemeStyle.DEEP_HARBOR) }
+    var currentThemeStyle by remember { mutableStateOf(HarborThemeStyle.LOVE_ROSE) }
     var currentNavTab by remember { mutableStateOf(HarborNavTab.DISCOVER) }
     var currentScreen by remember { mutableStateOf<HarborScreen>(HarborScreen.Main) }
 
@@ -79,7 +77,6 @@ fun HarborApp() {
     val catalogRepository = remember { CatalogRepository(addonRepository, apiClient) }
     val streamResolver = remember { StreamResolverRepository(context, addonRepository, apiClient) }
     val vaultRepository = remember { VaultRepository(database.watchHistoryDao(), database.watchlistDao()) }
-    val watchPartyRepository = remember { WatchPartyRepository() }
 
     HarborTheme(themeStyle = currentThemeStyle) {
         when (val screen = currentScreen) {
@@ -132,9 +129,8 @@ fun HarborApp() {
                     topBar = {
                         if (currentNavTab != HarborNavTab.SEARCH) {
                             HarborTopBar(
-                                title = "HARBOR",
+                                title = "LOVE",
                                 onSearchClick = { currentNavTab = HarborNavTab.SEARCH },
-                                onWatchPartyClick = { currentNavTab = HarborNavTab.PARTY },
                                 onSettingsClick = { currentNavTab = HarborNavTab.SETTINGS }
                             )
                         }
@@ -192,18 +188,11 @@ fun HarborApp() {
                                 )
                             }
                             HarborNavTab.ADDONS -> {
-                                AddonsScreen(addonRepository = addonRepository)
-                            }
-                            HarborNavTab.PARTY -> {
-                                WatchPartyScreen(
-                                    watchPartyRepository = watchPartyRepository,
-                                    onLaunchSyncedMedia = { title, url ->
-                                        currentScreen = HarborScreen.Player(
-                                            title = title,
-                                            streamUrl = url,
-                                            mediaId = "party_play"
-                                        )
-                                    }
+                                AddonsScreen(
+                                    addonRepository = addonRepository,
+                                    stremioSession = stremioSession,
+                                    vaultRepository = vaultRepository,
+                                    streamResolverRepository = streamResolver
                                 )
                             }
                             HarborNavTab.SETTINGS -> {

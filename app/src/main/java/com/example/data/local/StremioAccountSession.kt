@@ -20,6 +20,8 @@ class StremioAccountSession(context: Context) {
     private val _sessionState = MutableStateFlow(loadSession())
     val sessionState: StateFlow<StremioSessionState> = _sessionState.asStateFlow()
 
+    fun getAuthKey(): String? = _sessionState.value.authKey
+
     private fun loadSession(): StremioSessionState {
         val authKey = prefs.getString("auth_key", null)
         val email = prefs.getString("email", null)

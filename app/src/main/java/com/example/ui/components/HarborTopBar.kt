@@ -1,7 +1,6 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Anchor
-import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -35,10 +33,9 @@ import com.example.ui.theme.LocalHarborTheme
 
 @Composable
 fun HarborTopBar(
-    title: String = "HARBOR",
+    title: String = "LOVE",
     showLogo: Boolean = true,
     onSearchClick: (() -> Unit)? = null,
-    onWatchPartyClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null
 ) {
     val theme = LocalHarborTheme.current
@@ -57,16 +54,17 @@ fun HarborTopBar(
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            listOf(theme.surfaceVariant, theme.surface)
+                            listOf(theme.primary, Color(0xFFFF5277))
                         )
                     ),
                 contentAlignment = Alignment.Center
             ) {
+                // White Heart Logo
                 Icon(
-                    imageVector = Icons.Default.Anchor,
-                    contentDescription = "Harbor Logo",
-                    tint = theme.primary,
-                    modifier = Modifier.size(22.dp)
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = "Love Heart Logo",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(10.dp))
@@ -76,13 +74,13 @@ fun HarborTopBar(
             text = title,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Black,
-                letterSpacing = 1.5.sp
+                letterSpacing = 2.sp
             ),
-            color = MaterialTheme.colorScheme.onBackground,
+            color = Color.White,
             modifier = Modifier.weight(1f)
         )
 
-        // Stremio Addon active pill indicator
+        // Live Addon Engine indicator
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -99,7 +97,7 @@ fun HarborTopBar(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "v3 ENGINE",
+                    text = "ONLINE",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = theme.primary
@@ -120,21 +118,6 @@ fun HarborTopBar(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
                     tint = MaterialTheme.colorScheme.onBackground
-                )
-            }
-        }
-
-        if (onWatchPartyClick != null) {
-            IconButton(
-                onClick = onWatchPartyClick,
-                modifier = Modifier
-                    .testTag("top_bar_watch_party_button")
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Group,
-                    contentDescription = "Watch Party",
-                    tint = theme.primary
                 )
             }
         }

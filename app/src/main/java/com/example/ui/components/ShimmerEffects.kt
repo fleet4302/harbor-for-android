@@ -93,7 +93,7 @@ fun StreamRadarScanningCard(
         "Scanning DHT Swarms & Trackers...",
         "Querying Torrentio aggregation engine...",
         "Resolving Real-Debrid cached torrents...",
-        "Calculating Harbor health & seed scores..."
+        "Calculating Love health & seed scores..."
     )
 
     LaunchedEffect(Unit) {

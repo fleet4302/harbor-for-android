@@ -12,18 +12,18 @@ enum class HarborThemeStyle(
     val secondary: Color,
     val accentGlow: Color
 ) {
-    DEEP_HARBOR(
-        title = "Deep Harbor",
-        subtitle = "Signature Maritime Navy & Neon Cyan",
-        background = Color(0xFF060D19),
-        surface = Color(0xFF0C182B),
-        surfaceVariant = Color(0xFF14243D),
-        primary = Color(0xFF00E5FF),
-        secondary = Color(0xFF3B82F6),
-        accentGlow = Color(0xFF00E5FF)
+    LOVE_ROSE(
+        title = "Love Velvet",
+        subtitle = "Signature Obsidian & Radiant Heart Rose",
+        background = Color(0xFF090A0F),
+        surface = Color(0xFF12131C),
+        surfaceVariant = Color(0xFF1D1F2D),
+        primary = Color(0xFFFF2D55),
+        secondary = Color(0xFFFB7185),
+        accentGlow = Color(0xFFFF3366)
     ),
     ABYSS(
-        title = "Abyss OLED",
+        title = "Obsidian Glow",
         subtitle = "Pure Pitch Black & Cyber Violet",
         background = Color(0xFF000000),
         surface = Color(0xFF0D0D12),
@@ -32,8 +32,18 @@ enum class HarborThemeStyle(
         secondary = Color(0xFFEC4899),
         accentGlow = Color(0xFFA855F7)
     ),
+    DEEP_HARBOR(
+        title = "Ocean Wave",
+        subtitle = "Deep Midnight Navy & Neon Cyan",
+        background = Color(0xFF060D19),
+        surface = Color(0xFF0C182B),
+        surfaceVariant = Color(0xFF14243D),
+        primary = Color(0xFF00E5FF),
+        secondary = Color(0xFF3B82F6),
+        accentGlow = Color(0xFF00E5FF)
+    ),
     NAUTICAL_GOLD(
-        title = "Nautical Gold",
+        title = "Sunset Gold",
         subtitle = "Dark Slate Navy & Warm Amber",
         background = Color(0xFF0B131E),
         surface = Color(0xFF131E2E),
@@ -41,15 +51,5 @@ enum class HarborThemeStyle(
         primary = Color(0xFFF59E0B),
         secondary = Color(0xFFFB923C),
         accentGlow = Color(0xFFF59E0B)
-    ),
-    NORDIC_EMERALD(
-        title = "Nordic Fog",
-        subtitle = "Charcoal Slate & Aurora Emerald",
-        background = Color(0xFF0A1214),
-        surface = Color(0xFF101E20),
-        surfaceVariant = Color(0xFF182D30),
-        primary = Color(0xFF10B981),
-        secondary = Color(0xFF06B6D4),
-        accentGlow = Color(0xFF10B981)
     )
 }

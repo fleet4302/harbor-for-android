@@ -147,14 +147,34 @@ class StreamResolverRepository(
         // Get currently active stream addons installed or synced by the user
         val enabledAddons = addonRepository.getEnabledAddons().filter { it.supportsStream }.toMutableList()
 
+        val defaultScraperUrl = if (!activeDebridKey.isNullOrBlank()) {
+            "https://torrentio.strem.fun/realdebrid=$activeDebridKey|providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,nyaasi|sort=qualitysize|limit=30/manifest.json"
+        } else {
+            "https://torrentio.strem.fun/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,nyaasi|sort=qualitysize|limit=30/manifest.json"
+        }
+
         // If Torrentio is linked or user set a custom Torrentio URL, ensure it's in the resolution pipeline
-        if ((isTorrentioLinked || !customTorrentio.isNullOrBlank()) && enabledAddons.none { it.id == "community.torrentio" || it.manifestUrl == customTorrentio }) {
-            val manifestUrl = if (!customTorrentio.isNullOrBlank()) customTorrentio else "https://torrentio.strem.fun/manifest.json"
+        if (isTorrentioLinked || !customTorrentio.isNullOrBlank()) {
+            val manifestUrl = if (!customTorrentio.isNullOrBlank()) customTorrentio else defaultScraperUrl
+            if (enabledAddons.none { it.id == "community.torrentio" || it.manifestUrl == customTorrentio }) {
+                enabledAddons.add(
+                    AddonEntity(
+                        id = "community.torrentio",
+                        manifestUrl = manifestUrl,
+                        name = "Torrentio",
+                        supportsStream = true
+                    )
+                )
+            }
+        }
+
+        // Add KnightCrawler multi-source stream aggregator if fewer than 2 stream addons exist
+        if (enabledAddons.size <= 1 && enabledAddons.none { it.manifestUrl.contains("knightcrawler") }) {
             enabledAddons.add(
                 AddonEntity(
-                    id = "community.torrentio",
-                    manifestUrl = manifestUrl,
-                    name = "Torrentio",
+                    id = "community.knightcrawler",
+                    manifestUrl = "https://knightcrawler.elfhosted.com/manifest.json",
+                    name = "KnightCrawler",
                     supportsStream = true
                 )
             )
@@ -165,12 +185,17 @@ class StreamResolverRepository(
         }
 
         val streamList = mutableListOf<HarborParsedStream>()
+        val resolvedType = if (type == "tv") "series" else type
 
         coroutineScope {
             val deferreds = enabledAddons.map { addon ->
                 async {
                     var addonUrl = addon.manifestUrl
-                    val result = apiClient.fetchStreams(addonUrl, type, id)
+                    // If bare Torrentio manifest, upgrade to multi-provider scraper url
+                    if (addonUrl == "https://torrentio.strem.fun/manifest.json") {
+                        addonUrl = defaultScraperUrl
+                    }
+                    val result = apiClient.fetchStreams(addonUrl, resolvedType, id)
                     if (result.isSuccess) {
                         result.getOrNull()?.mapNotNull { rawItem ->
                             // Discard YouTube previews/trailers

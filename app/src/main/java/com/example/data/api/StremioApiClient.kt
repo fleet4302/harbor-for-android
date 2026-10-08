@@ -253,7 +253,10 @@ class StremioApiClient {
 
     suspend fun getAddonCollection(authKey: String): Result<List<StremioSyncedAddon>> = withContext(Dispatchers.IO) {
         try {
-            val jsonBody = addonCollectionRequestAdapter.toJson(StremioAddonCollectionRequest(authKey = authKey.trim()))
+            val jsonBody = org.json.JSONObject().apply {
+                put("type", "AddonCollectionGet")
+                put("authKey", authKey.trim())
+            }.toString()
             val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder()
                 .url("https://api.strem.io/api/addonCollectionGet")
@@ -269,10 +272,10 @@ class StremioApiClient {
                 val json = try {
                     org.json.JSONObject(body)
                 } catch (e: Exception) {
-                    null
+                    return@withContext Result.failure(Exception("Could not parse JSON response from Stremio"))
                 }
 
-                if (json != null && json.has("error") && !json.isNull("error")) {
+                if (json.has("error") && !json.isNull("error")) {
                     val errorMsg = when (val err = json.opt("error")) {
                         is org.json.JSONObject -> err.optString("message", err.toString())
                         is String -> err
@@ -281,12 +284,166 @@ class StremioApiClient {
                     return@withContext Result.failure(Exception(errorMsg))
                 }
 
-                val collectionResp = addonCollectionResponseAdapter.fromJson(body)
-                val addons = collectionResp?.result?.addons ?: emptyList()
-                Result.success(addons)
+                // Resilient parsing: handles both nested result.addons and direct array
+                val addonsArray = when {
+                    json.has("result") && json.optJSONObject("result")?.has("addons") == true -> {
+                        json.optJSONObject("result")?.optJSONArray("addons")
+                    }
+                    json.has("result") && json.optJSONArray("result") != null -> {
+                        json.optJSONArray("result")
+                    }
+                    json.has("addons") -> {
+                        json.optJSONArray("addons")
+                    }
+                    else -> null
+                }
+
+                val list = mutableListOf<StremioSyncedAddon>()
+                if (addonsArray != null) {
+                    for (i in 0 until addonsArray.length()) {
+                        val itemObj = addonsArray.optJSONObject(i) ?: continue
+                        val manifestObj = itemObj.optJSONObject("manifest") ?: itemObj
+                        val id = manifestObj.optString("id", itemObj.optString("id", ""))
+                        val name = manifestObj.optString("name", itemObj.optString("name", id))
+                        var transportUrl = itemObj.optString("transportUrl",
+                            itemObj.optString("manifestUrl",
+                                itemObj.optString("url",
+                                    manifestObj.optString("transportUrl",
+                                        manifestObj.optString("manifestUrl", "")
+                                    )
+                                )
+                            )
+                        )
+                        if (transportUrl.isBlank() && id.isNotBlank()) {
+                            // Known defaults
+                            transportUrl = when (id) {
+                                "community.torrentio" -> "https://torrentio.strem.fun/manifest.json"
+                                "community.cinemeta" -> "https://v3-cinemeta.strem.io/manifest.json"
+                                "org.stremio.opensubtitles" -> "https://opensubtitles-v3.strem.io/manifest.json"
+                                else -> ""
+                            }
+                        }
+
+                        if (id.isNotBlank() && transportUrl.isNotBlank()) {
+                            val desc = manifestObj.optString("description", "")
+                            val version = manifestObj.optString("version", "1.0.0")
+                            val logo = if (manifestObj.has("logo")) manifestObj.optString("logo") else null
+                            val icon = if (manifestObj.has("icon")) manifestObj.optString("icon") else null
+
+                            val manifest = StremioManifest(
+                                id = id,
+                                name = name,
+                                version = version,
+                                description = desc,
+                                logo = logo,
+                                icon = icon
+                            )
+                            list.add(StremioSyncedAddon(transportUrl = transportUrl, manifest = manifest))
+                        }
+                    }
+                }
+                Result.success(list)
             }
         } catch (e: Exception) {
             Log.e("StremioApiClient", "AddonCollection error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Syncs user's library and watch state from Stremio datastore
+     */
+    suspend fun getLibraryItems(authKey: String): Result<List<com.example.data.model.StremioLibraryEntry>> = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = org.json.JSONObject().apply {
+                put("authKey", authKey.trim())
+                put("collection", "libraryItem")
+            }.toString()
+            val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val request = Request.Builder()
+                .url("https://api.strem.io/api/datastoreGet")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                if (body.isBlank()) {
+                    return@withContext Result.failure(Exception("Empty library response"))
+                }
+
+                val json = try {
+                    org.json.JSONObject(body)
+                } catch (e: Exception) {
+                    return@withContext Result.failure(Exception("Could not parse library JSON"))
+                }
+
+                val itemsArray = when {
+                    json.has("result") && json.optJSONArray("result") != null -> json.optJSONArray("result")
+                    json.has("result") && json.optJSONObject("result")?.has("items") == true -> json.optJSONObject("result")?.optJSONArray("items")
+                    else -> null
+                }
+
+                val list = mutableListOf<com.example.data.model.StremioLibraryEntry>()
+                if (itemsArray != null) {
+                    for (i in 0 until itemsArray.length()) {
+                        val itemObj = itemsArray.optJSONObject(i) ?: continue
+                        val id = itemObj.optString("_id", itemObj.optString("id", ""))
+                        val name = itemObj.optString("name", "Untitled")
+                        val type = itemObj.optString("type", "movie")
+                        var poster = if (itemObj.has("poster")) itemObj.optString("poster") else null
+                        val background = if (itemObj.has("background")) itemObj.optString("background") else null
+
+                        // If poster is null and it's an IMDb ID, use Cinemeta poster CDN
+                        if (poster.isNullOrBlank() && id.startsWith("tt")) {
+                            poster = "https://images.metahub.space/poster/medium/$id/img"
+                        }
+
+                        var season: Int? = null
+                        var episode: Int? = null
+                        var posMs = 0L
+                        var durMs = 0L
+                        val lastWatched = System.currentTimeMillis()
+
+                        val stateObj = itemObj.optJSONObject("state")
+                        if (stateObj != null) {
+                            val rawPos = stateObj.optLong("timeOffset", 0L)
+                            val rawDur = stateObj.optLong("duration", 0L)
+                            // Convert seconds to milliseconds if stored in seconds
+                            posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
+                            durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
+
+                            val videoId = stateObj.optString("video_id", "")
+                            if (videoId.contains(":")) {
+                                val parts = videoId.split(":")
+                                if (parts.size >= 3) {
+                                    season = parts[1].toIntOrNull()
+                                    episode = parts[2].toIntOrNull()
+                                }
+                            }
+                        }
+
+                        if (id.isNotBlank()) {
+                            list.add(
+                                com.example.data.model.StremioLibraryEntry(
+                                    id = id,
+                                    name = name,
+                                    type = type,
+                                    poster = poster,
+                                    background = background,
+                                    season = season,
+                                    episode = episode,
+                                    positionMs = posMs,
+                                    durationMs = durMs,
+                                    lastWatchedTimestamp = lastWatched
+                                )
+                            )
+                        }
+                    }
+                }
+                Result.success(list)
+            }
+        } catch (e: Exception) {
+            Log.e("StremioApiClient", "Error fetching library items: ${e.message}", e)
             Result.failure(e)
         }
     }

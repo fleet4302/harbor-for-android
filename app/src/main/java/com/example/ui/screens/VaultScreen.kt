@@ -99,7 +99,7 @@ fun VaultScreen(
         ) {
             Column {
                 Text(
-                    text = "HARBOR VAULT",
+                    text = "LOVE VAULT",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
@@ -259,7 +259,9 @@ private fun ContinueWatchingCard(
                         .clip(RoundedCornerShape(8.dp))
                         .background(theme.surfaceVariant)
                 ) {
-                    val img = item.poster ?: item.background
+                    val img = item.poster ?: item.background ?: if (item.mediaId.startsWith("tt")) {
+                        "https://images.metahub.space/poster/medium/${item.mediaId}/img"
+                    } else null
                     if (!img.isNullOrBlank()) {
                         AsyncImage(
                             model = ImageRequest.Builder(context).data(img).crossfade(true).build(),

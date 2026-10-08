@@ -170,3 +170,16 @@ data class StremioSyncedAddon(
     val manifest: StremioManifest
 )
 
+data class StremioLibraryEntry(
+    val id: String,
+    val name: String,
+    val type: String,
+    val poster: String? = null,
+    val background: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val lastWatchedTimestamp: Long = System.currentTimeMillis()
+)
+

@@ -9,11 +9,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.example.data.model.HarborThemeStyle
 
-val LocalHarborTheme = staticCompositionLocalOf { HarborThemeStyle.DEEP_HARBOR }
+val LocalHarborTheme = staticCompositionLocalOf { HarborThemeStyle.LOVE_ROSE }
 
 @Composable
 fun HarborTheme(
-    themeStyle: HarborThemeStyle = HarborThemeStyle.DEEP_HARBOR,
+    themeStyle: HarborThemeStyle = HarborThemeStyle.LOVE_ROSE,
     content: @Composable () -> Unit
 ) {
     val colorScheme = darkColorScheme(

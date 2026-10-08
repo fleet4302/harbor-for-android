@@ -4,32 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Harbor geometric shield base -->
+    <!-- Glowing background subtle heart aura -->
     <path
-        android:fillColor="#102A54"
-        android:pathData="M 54,24 C 68,24 80,32 80,48 C 80,68 54,84 54,84 C 54,84 28,68 28,48 C 28,32 40,24 54,24 Z" />
-    <!-- Glowing Cyan Anchor / Helm arc -->
-    <path
-        android:strokeColor="#00E5FF"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M 36,52 C 36,66 44,72 54,72 C 64,72 72,66 72,52" />
-    <!-- Horizontal Crossbar -->
-    <path
-        android:strokeColor="#00E5FF"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M 42,42 L 66,42" />
-    <!-- Anchor top ring -->
-    <path
-        android:strokeColor="#00E5FF"
-        android:strokeWidth="3.5"
-        android:fillColor="#00000000"
-        android:pathData="M 54,34 m -6,0 a 6,6 0 1,0 12,0 a 6,6 0 1,0 -12,0" />
-    <!-- Play Triangle centered in anchor core -->
+        android:fillColor="#33FF2E74"
+        android:pathData="M 54,32 C 48,22 32,22 26,34 C 20,46 30,60 54,78 C 78,60 88,46 82,34 C 76,22 60,22 54,32 Z" />
+    <!-- Crisp White Heart Logo -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M 50,47 L 62,54 L 50,61 Z" />
+        android:pathData="M 54,36 C 49,26 36,26 31,37 C 26,48 35,60 54,74 C 73,60 82,48 77,37 C 72,26 59,26 54,36 Z" />
 </vector>

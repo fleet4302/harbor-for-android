@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,11 +28,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -41,12 +45,19 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,6 +77,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -73,6 +85,7 @@ import coil.request.ImageRequest
 import com.example.data.api.StremioApiClient
 import com.example.data.local.StremioAccountSession
 import com.example.data.model.HarborParsedStream
+import com.example.data.model.HarborStreamParser
 import com.example.data.model.StremioMetaDetail
 import com.example.data.model.StremioVideo
 import com.example.data.model.StreamResolution
@@ -90,7 +103,7 @@ import com.example.ui.components.TorrentioSetupDialog
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MediaDetailScreen(
     mediaType: String,
@@ -117,6 +130,7 @@ fun MediaDetailScreen(
 
     var selectedSeason by remember { mutableIntStateOf(1) }
     var selectedEpisode by remember { mutableStateOf<StremioVideo?>(null) }
+    var showEpisodeStreamSheet by remember { mutableStateOf(false) }
     var streamFilterRes by remember { mutableStateOf<StreamResolution?>(null) }
 
     var showTorrentioSetup by remember { mutableStateOf(false) }
@@ -131,19 +145,40 @@ fun MediaDetailScreen(
 
     fun refreshStreams(targetDetail: StremioMetaDetail) {
         scope.launch {
-            Log.d("MediaDetailScreen", "refreshStreams called for ${targetDetail.type} ${targetDetail.id} episode: ${selectedEpisode?.id}")
             isLoadingStreams = true
             try {
-                val streamQueryId = if (targetDetail.type == "series" && selectedEpisode != null) {
-                    val s = selectedEpisode?.season ?: 1
-                    val e = selectedEpisode?.episode ?: 1
-                    "${targetDetail.id}:$s:$e"
+                val isSeries = targetDetail.type == "series" || targetDetail.type == "tv"
+                val streamQueryId = if (isSeries && selectedEpisode != null) {
+                    val ep = selectedEpisode!!
+                    val s = ep.season ?: 1
+                    val e = ep.episode ?: 1
+                    val epId = ep.id
+                    if (epId.startsWith("tt") && epId.count { it == ':' } >= 2) {
+                        epId
+                    } else if (targetDetail.id.startsWith("tt")) {
+                        "${targetDetail.id}:$s:$e"
+                    } else if (epId.contains(":")) {
+                        epId
+                    } else {
+                        "${targetDetail.id}:$s:$e"
+                    }
                 } else {
                     targetDetail.id
                 }
-                Log.d("MediaDetailScreen", "Querying streams with ID: $streamQueryId")
-                streams = streamResolverRepository.resolveStreams(targetDetail.type, streamQueryId)
-                Log.d("MediaDetailScreen", "Found ${streams.size} streams")
+                val streamType = if (isSeries) "series" else "movie"
+                Log.d("MediaDetailScreen", "Querying streams type: $streamType with ID: $streamQueryId for ${targetDetail.name}")
+                val resolved = streamResolverRepository.resolveStreams(streamType, streamQueryId)
+
+                val allStreams = resolved.toMutableList()
+                if (selectedEpisode?.stream != null) {
+                    val epStream = selectedEpisode!!.stream!!
+                    val parsed = HarborStreamParser.parse(epStream, "Official Stream")
+                    if (allStreams.none { it.rawStream.url == epStream.url }) {
+                        allStreams.add(0, parsed)
+                    }
+                }
+                streams = allStreams
+                Log.d("MediaDetailScreen", "Found ${streams.size} streams for $streamQueryId")
             } catch (e: Exception) {
                 Log.e("MediaDetailScreen", "Error refreshing streams", e)
             } finally {
@@ -483,16 +518,19 @@ fun MediaDetailScreen(
                     ) {
                         EpisodeCard(
                             episode = ep,
+                            isSelected = isSelected,
                             onSelect = {
-                                Log.d("MediaDetailScreen", "Episode clicked: ${ep.id}")
+                                Log.d("MediaDetailScreen", "Episode clicked: ${ep.id} - Opening stream sheet")
                                 selectedEpisode = ep
+                                showEpisodeStreamSheet = true
+                                refreshStreams(item)
                             }
                         )
                     }
                 }
             }
 
-            // Harbor Streams Section
+            // Love Streams Section
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -504,7 +542,7 @@ fun MediaDetailScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Harbor Streams",
+                                    text = "Love Streams",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -605,7 +643,7 @@ fun MediaDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Harbor displays zero fake streams. Configure Torrentio or connect your Stremio cloud account to aggregate real torrents and Debrid streams across major trackers.",
+                                    text = "Love displays zero fake streams. Configure Torrentio or connect your Stremio cloud account to aggregate real torrents and Debrid streams across major trackers.",
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center,
                                     lineHeight = 16.sp,
@@ -830,7 +868,7 @@ fun MediaDetailScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Harbor's built-in native player requires Real-Debrid or TorBox to convert P2P torrents into direct high-speed HTTP streams without buffering.",
+                            text = "Love's built-in native player requires Real-Debrid or TorBox to convert P2P torrents into direct high-speed HTTP streams without buffering.",
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
                             color = Color.White
@@ -943,6 +981,292 @@ fun MediaDetailScreen(
                     }
                 }
             )
+        }
+
+        // Sticky floating episode stream bar when an episode is selected
+        if (item.type == "series" && selectedEpisode != null) {
+            val ep = selectedEpisode!!
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = theme.surface.copy(alpha = 0.96f),
+                border = BorderStroke(1.dp, theme.primary.copy(alpha = 0.5f)),
+                shadowElevation = 12.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "S${ep.season}:E${ep.episode} • ${ep.title ?: "Episode"}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (isLoadingStreams) "Scanning torrents..." else "${filteredStreams.size} Love streams ready",
+                            fontSize = 11.sp,
+                            color = if (isLoadingStreams) theme.primary else Color(0xFF94A3B8)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = { showEpisodeStreamSheet = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = theme.primary,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Streams", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Dedicated Cinema Dialog for Episode Streams
+        if (showEpisodeStreamSheet && selectedEpisode != null) {
+            val ep = selectedEpisode!!
+            Dialog(
+                onDismissRequest = { showEpisodeStreamSheet = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .clickable { showEpisodeStreamSheet = false },
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.85f)
+                            .clickable(enabled = false) { /* prevent backdrop dismissal */ },
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                        colors = CardDefaults.cardColors(containerColor = theme.surface)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            // Drag pill
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(width = 40.dp, height = 4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Header
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "SEASON ${ep.season} • EPISODE ${ep.episode}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = theme.primary,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Text(
+                                        text = ep.title ?: "Episode ${ep.episode}",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (!ep.overview.isNullOrBlank()) {
+                                        Text(
+                                            text = ep.overview,
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp,
+                                            color = Color(0xFF94A3B8),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { showEpisodeStreamSheet = false }) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Quality Filter Pills
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilterPill("All (${streams.size})", streamFilterRes == null) { streamFilterRes = null }
+                                FilterPill("4K UHD", streamFilterRes == StreamResolution.RES_4K) { streamFilterRes = StreamResolution.RES_4K }
+                                FilterPill("1080p", streamFilterRes == StreamResolution.RES_1080P) { streamFilterRes = StreamResolution.RES_1080P }
+                                FilterPill("720p", streamFilterRes == StreamResolution.RES_720P) { streamFilterRes = StreamResolution.RES_720P }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            if (isLoadingStreams) {
+                                StreamRadarScanningCard()
+                                Spacer(modifier = Modifier.height(8.dp))
+                                StreamLoadingSkeletonList(count = 3)
+                            } else if (filteredStreams.isEmpty()) {
+                                val isSourceLinked = streamResolverRepository.isStreamSourceLinked()
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = theme.surfaceVariant)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bolt,
+                                            contentDescription = null,
+                                            tint = theme.primary,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = if (!isSourceLinked) "No Stream Source Configured" else "No torrent streams found for this episode",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = if (!isSourceLinked) "Link Torrentio or connect Real-Debrid to resolve torrent streams." else "Try refreshing or select another season/episode.",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = {
+                                                    scope.launch {
+                                                        isLoadingStreams = true
+                                                        streamResolverRepository.linkTorrentio()
+                                                        refreshStreams(item)
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = theme.primary, contentColor = Color.Black)
+                                            ) {
+                                                Text("Quick Link Torrentio", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            }
+                                            OutlinedButton(onClick = { showTorrentioSetup = true }) {
+                                                Text("Setup Wizard", fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredStreams) { st ->
+                                        StreamItemCard(
+                                            stream = st,
+                                            onPlay = {
+                                                showEpisodeStreamSheet = false
+                                                val url = st.rawStream.url ?: if (!st.rawStream.infoHash.isNullOrBlank()) {
+                                                    "magnet:?xt=urn:btih:${st.rawStream.infoHash}"
+                                                } else ""
+
+                                                val displayTitle = "${item.name} - S${ep.season}:E${ep.episode} - ${ep.title ?: ""}"
+
+                                                if (url.startsWith("http://") || url.startsWith("https://")) {
+                                                    onPlayStream(
+                                                        displayTitle,
+                                                        url,
+                                                        item.id,
+                                                        ep.season,
+                                                        ep.episode,
+                                                        ep.title,
+                                                        item.poster,
+                                                        item.background
+                                                    )
+                                                } else if (url.startsWith("magnet:")) {
+                                                    val debridInfo = streamResolverRepository.getLinkedDebridInfo()
+                                                    if (debridInfo != null) {
+                                                        scope.launch {
+                                                            isResolvingDebrid = true
+                                                            val res = streamResolverRepository.resolveMagnetViaDebrid(url)
+                                                            isResolvingDebrid = false
+                                                            if (res.isSuccess) {
+                                                                onPlayStream(
+                                                                    displayTitle,
+                                                                    res.getOrThrow(),
+                                                                    item.id,
+                                                                    ep.season,
+                                                                    ep.episode,
+                                                                    ep.title,
+                                                                    item.poster,
+                                                                    item.background
+                                                                )
+                                                            } else {
+                                                                debridResolutionError = res.exceptionOrNull()?.message ?: "Torrent not cached in Debrid"
+                                                                pendingExternalMagnetUrl = url
+                                                            }
+                                                        }
+                                                    } else {
+                                                        showDebridRequiredDialog = url
+                                                    }
+                                                }
+                                            },
+                                            onExternalPlay = {
+                                                val url = st.rawStream.url ?: if (!st.rawStream.infoHash.isNullOrBlank()) {
+                                                    "magnet:?xt=urn:btih:${st.rawStream.infoHash}"
+                                                } else ""
+                                                if (url.isNotBlank()) {
+                                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                        if (url.startsWith("magnet:")) {
+                                                            data = Uri.parse(url)
+                                                        } else {
+                                                            setDataAndType(Uri.parse(url), "video/*")
+                                                        }
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                    try {
+                                                        context.startActivity(Intent.createChooser(intent, "Open stream with"))
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "No external app installed", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

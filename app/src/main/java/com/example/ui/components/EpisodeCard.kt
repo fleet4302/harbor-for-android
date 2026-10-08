@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -42,7 +43,8 @@ import com.example.ui.theme.LocalHarborTheme
 fun EpisodeCard(
     episode: StremioVideo,
     onSelect: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false
 ) {
     val theme = LocalHarborTheme.current
     val context = LocalContext.current
@@ -53,8 +55,9 @@ fun EpisodeCard(
             .testTag("episode_card_${episode.id}")
             .clickable { onSelect() },
         shape = RoundedCornerShape(12.dp),
+        border = if (isSelected) BorderStroke(1.5.dp, theme.primary) else BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
         colors = CardDefaults.cardColors(
-            containerColor = theme.surface
+            containerColor = if (isSelected) theme.primary.copy(alpha = 0.12f) else theme.surface
         )
     ) {
         Row(
@@ -89,13 +92,13 @@ fun EpisodeCard(
                         .align(Alignment.Center)
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
+                        .background(if (isSelected) theme.primary else Color.Black.copy(alpha = 0.6f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play Episode",
-                        tint = Color.White,
+                        tint = if (isSelected) Color.Black else Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -110,9 +113,9 @@ fun EpisodeCard(
                 Text(
                     text = "$epNumber${episode.title ?: "Episode"}",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -134,6 +137,34 @@ fun EpisodeCard(
                         fontSize = 10.sp,
                         color = theme.primary,
                         modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Action play pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isSelected) theme.primary else theme.primary.copy(alpha = 0.15f))
+                    .clickable { onSelect() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Watch Episode",
+                        tint = if (isSelected) Color.Black else theme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "Streams",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) Color.Black else theme.primary
                     )
                 }
             }

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -17,15 +18,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +85,10 @@ fun DiscoverScreen(
     var popularSeries by remember { mutableStateOf<List<StremioMetaSummary>>(emptyList()) }
     var featuredItem by remember { mutableStateOf<StremioMetaSummary?>(null) }
 
+    var expandedSectionTitle by remember { mutableStateOf<String?>(null) }
+    var expandedSectionItems by remember { mutableStateOf<List<StremioMetaSummary>>(emptyList()) }
+    var expandedSearchQuery by remember { mutableStateOf("") }
+
     val continueWatching by vaultRepository.continueWatching.collectAsState(initial = emptyList())
 
     val genres = listOf("All", "Action", "Sci-Fi", "Drama", "Animation", "Comedy", "Thriller", "Adventure", "Fantasy")
@@ -97,6 +114,101 @@ fun DiscoverScreen(
 
     LaunchedEffect(selectedGenre) {
         loadData()
+    }
+
+    if (expandedSectionTitle != null) {
+        val title = expandedSectionTitle!!
+        BackHandler {
+            expandedSectionTitle = null
+            expandedSearchQuery = ""
+        }
+        val displayedItems = remember(expandedSectionItems, expandedSearchQuery) {
+            if (expandedSearchQuery.isBlank()) {
+                expandedSectionItems
+            } else {
+                expandedSectionItems.filter { it.name.contains(expandedSearchQuery, ignoreCase = true) }
+            }
+        }
+
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(theme.background)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    expandedSectionTitle = null
+                    expandedSearchQuery = ""
+                }) {
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    Text(
+                        text = "${displayedItems.size} Titles Available",
+                        fontSize = 11.sp,
+                        color = theme.primary
+                    )
+                }
+            }
+
+            // Search within catalog
+            OutlinedTextField(
+                value = expandedSearchQuery,
+                onValueChange = { expandedSearchQuery = it },
+                placeholder = { Text("Filter $title...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = theme.primary, modifier = Modifier.size(18.dp)) },
+                trailingIcon = {
+                    if (expandedSearchQuery.isNotEmpty()) {
+                        IconButton(onClick = { expandedSearchQuery = "" }) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = theme.primary,
+                    unfocusedBorderColor = theme.surfaceVariant,
+                    focusedContainerColor = theme.surface,
+                    unfocusedContainerColor = theme.surface
+                ),
+                singleLine = true
+            )
+
+            // Grid
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 115.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(displayedItems) { media ->
+                    MediaPosterCard(
+                        media = media,
+                        onClick = { onMediaSelected(media.type, media.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        return
     }
 
     if (isLoading && popularMovies.isEmpty() && popularSeries.isEmpty()) {
@@ -233,22 +345,43 @@ fun DiscoverScreen(
             }
         }
 
-        // Continue Watching Shelf (Harbor Vault)
+        // Continue Watching Shelf (Love Vault)
         if (continueWatching.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                SectionHeader(title = "Continue Watching", subtitle = "Harbor Vault")
+                SectionHeader(
+                    title = "Continue Watching",
+                    subtitle = "Love Vault",
+                    onSeeAll = {
+                        expandedSectionTitle = "Continue Watching"
+                        expandedSectionItems = continueWatching.map { historyItem ->
+                            StremioMetaSummary(
+                                id = historyItem.mediaId,
+                                type = historyItem.type,
+                                name = historyItem.title,
+                                poster = historyItem.poster,
+                                background = historyItem.background,
+                                releaseInfo = if (historyItem.season != null && historyItem.episode != null) {
+                                    "S${historyItem.season}:E${historyItem.episode}"
+                                } else null
+                            )
+                        }
+                    }
+                )
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(continueWatching) { historyItem ->
+                        val posterUrl = historyItem.poster ?: if (historyItem.mediaId.startsWith("tt")) {
+                            "https://images.metahub.space/poster/medium/${historyItem.mediaId}/img"
+                        } else null
                         val summary = StremioMetaSummary(
                             id = historyItem.mediaId,
                             type = historyItem.type,
                             name = historyItem.title,
-                            poster = historyItem.poster,
-                            background = historyItem.background,
+                            poster = posterUrl,
+                            background = historyItem.background ?: posterUrl,
                             releaseInfo = if (historyItem.season != null && historyItem.episode != null) {
                                 "S${historyItem.season}:E${historyItem.episode}"
                             } else null
@@ -273,7 +406,14 @@ fun DiscoverScreen(
         if (selectedType == "all" || selectedType == "movie") {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                SectionHeader(title = "Popular Movies", subtitle = "Cinemeta Addon")
+                SectionHeader(
+                    title = "Popular Movies",
+                    subtitle = "Cinemeta Addon",
+                    onSeeAll = {
+                        expandedSectionTitle = "Popular Movies"
+                        expandedSectionItems = popularMovies
+                    }
+                )
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -284,6 +424,14 @@ fun DiscoverScreen(
                             onClick = { onMediaSelected("movie", movie.id) }
                         )
                     }
+                    if (popularMovies.isNotEmpty()) {
+                        item {
+                            SeeAllEndCard(onClick = {
+                                expandedSectionTitle = "Popular Movies"
+                                expandedSectionItems = popularMovies
+                            })
+                        }
+                    }
                 }
             }
         }
@@ -292,7 +440,14 @@ fun DiscoverScreen(
         if (selectedType == "all" || selectedType == "series") {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                SectionHeader(title = "Trending Series", subtitle = "Cinemeta Addon")
+                SectionHeader(
+                    title = "Trending Series",
+                    subtitle = "Cinemeta Addon",
+                    onSeeAll = {
+                        expandedSectionTitle = "Trending Series"
+                        expandedSectionItems = popularSeries
+                    }
+                )
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -303,6 +458,14 @@ fun DiscoverScreen(
                             onClick = { onMediaSelected("series", series.id) }
                         )
                     }
+                    if (popularSeries.isNotEmpty()) {
+                        item {
+                            SeeAllEndCard(onClick = {
+                                expandedSectionTitle = "Trending Series"
+                                expandedSectionItems = popularSeries
+                            })
+                        }
+                    }
                 }
             }
         }
@@ -310,10 +473,17 @@ fun DiscoverScreen(
         // Anime & Animation Showcase
         item {
             Spacer(modifier = Modifier.height(20.dp))
-            SectionHeader(title = "Anime & Sci-Fi", subtitle = "Kitsu & CyberFlix")
             val animeItems = (popularMovies + popularSeries).filter {
                 it.genres?.any { g -> g.contains("Animation", true) || g.contains("Sci-Fi", true) } == true
             }
+            SectionHeader(
+                title = "Anime & Sci-Fi",
+                subtitle = "Kitsu & CyberFlix",
+                onSeeAll = {
+                    expandedSectionTitle = "Anime & Sci-Fi"
+                    expandedSectionItems = animeItems
+                }
+            )
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -323,6 +493,14 @@ fun DiscoverScreen(
                         media = item,
                         onClick = { onMediaSelected(item.type, item.id) }
                     )
+                }
+                if (animeItems.isNotEmpty()) {
+                    item {
+                        SeeAllEndCard(onClick = {
+                            expandedSectionTitle = "Anime & Sci-Fi"
+                            expandedSectionItems = animeItems
+                        })
+                    }
                 }
             }
         }
@@ -357,15 +535,21 @@ private fun FilterTabPill(
 }
 
 @Composable
-private fun SectionHeader(title: String, subtitle: String? = null) {
+private fun SectionHeader(
+    title: String,
+    subtitle: String? = null,
+    onSeeAll: (() -> Unit)? = null
+) {
+    val theme = LocalHarborTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(enabled = onSeeAll != null) { onSeeAll?.invoke() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -381,11 +565,75 @@ private fun SectionHeader(title: String, subtitle: String? = null) {
                 )
             }
         }
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = "See All",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
+        if (onSeeAll != null) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(theme.primary.copy(alpha = 0.15f))
+                    .clickable { onSeeAll.invoke() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .testTag("expand_arrow_${title.lowercase().replace(" ", "_")}")
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "See All",
+                        fontSize = 11.sp,
+                        color = theme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Expand $title",
+                        tint = theme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeeAllEndCard(onClick: () -> Unit) {
+    val theme = LocalHarborTheme.current
+    Card(
+        modifier = Modifier
+            .width(115.dp)
+            .height(210.dp)
+            .clickable { onClick() }
+            .testTag("see_all_end_card"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = theme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(theme.primary.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "See All",
+                    tint = theme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Explore All",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
     }
 }

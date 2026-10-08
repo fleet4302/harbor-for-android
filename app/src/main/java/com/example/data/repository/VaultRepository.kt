@@ -86,4 +86,45 @@ class VaultRepository(
     suspend fun clearHistory() {
         historyDao.clearAll()
     }
+
+    suspend fun syncLibraryFromStremio(entries: List<com.example.data.model.StremioLibraryEntry>): Int {
+        var count = 0
+        entries.forEach { entry ->
+            val poster = entry.poster ?: if (entry.id.startsWith("tt")) "https://images.metahub.space/poster/medium/${entry.id}/img" else null
+            val key = if (entry.season != null && entry.episode != null) "${entry.id}:${entry.season}:${entry.episode}" else entry.id
+            val pos = if (entry.positionMs in 1..99999) entry.positionMs * 1000L else entry.positionMs
+            val dur = if (entry.durationMs in 1..99999) entry.durationMs * 1000L else if (entry.durationMs == 0L && pos > 0) 3600000L else entry.durationMs
+
+            val historyEntity = WatchHistoryEntity(
+                id = key,
+                mediaId = entry.id,
+                title = entry.name,
+                type = entry.type,
+                poster = poster,
+                background = entry.background,
+                season = entry.season,
+                episode = entry.episode,
+                episodeTitle = if (entry.season != null && entry.episode != null) "S${entry.season}:E${entry.episode}" else null,
+                positionMs = pos,
+                durationMs = dur,
+                streamUrl = null,
+                lastWatchedTimestamp = entry.lastWatchedTimestamp
+            )
+            historyDao.upsert(historyEntity)
+
+            val watchlistEntity = WatchlistEntity(
+                id = entry.id,
+                title = entry.name,
+                type = entry.type,
+                poster = poster,
+                background = entry.background,
+                releaseYear = null,
+                imdbRating = null,
+                genres = null
+            )
+            watchlistDao.insert(watchlistEntity)
+            count++
+        }
+        return count
+    }
 }

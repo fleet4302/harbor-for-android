@@ -13,21 +13,16 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <item android:color="#071328" android:offset="0.0" />
-                <item android:color="#0D2247" android:offset="0.6" />
-                <item android:color="#0A3663" android:offset="1.0" />
+                <item android:color="#0B0914" android:offset="0.0" />
+                <item android:color="#1A0D28" android:offset="0.5" />
+                <item android:color="#2D0B2E" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Subtle tech grid circles for maritime radar feel -->
+    <!-- Soft circular aura -->
     <path
-        android:strokeColor="#1E3A6E"
-        android:strokeWidth="1"
+        android:strokeColor="#25FF2E74"
+        android:strokeWidth="1.5"
         android:fillColor="#00000000"
-        android:pathData="M 54,54 m -42,0 a 42,42 0 1,0 84,0 a 42,42 0 1,0 -84,0" />
-    <path
-        android:strokeColor="#172C54"
-        android:strokeWidth="0.8"
-        android:fillColor="#00000000"
-        android:pathData="M 54,54 m -28,0 a 28,28 0 1,0 56,0 a 28,28 0 1,0 -56,0" />
+        android:pathData="M 54,54 m -38,0 a 38,38 0 1,0 76,0 a 38,38 0 1,0 -76,0" />
 </vector>

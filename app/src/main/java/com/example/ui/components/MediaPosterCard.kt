@@ -68,7 +68,9 @@ fun MediaPosterCard(
                     .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                     .background(theme.surfaceVariant)
             ) {
-                val imageUrl = media.poster ?: media.banner ?: media.background
+                val imageUrl = media.poster ?: media.banner ?: media.background ?: if (media.id.startsWith("tt")) {
+                    "https://images.metahub.space/poster/medium/${media.id}/img"
+                } else null
                 if (!imageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
@@ -107,23 +109,6 @@ fun MediaPosterCard(
                             )
                         }
                     }
-                }
-
-                // Type badge
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(theme.primary.copy(alpha = 0.85f))
-                        .padding(horizontal = 5.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = media.type.uppercase(),
-                        color = Color.Black,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black
-                    )
                 }
 
                 // Bottom progress indicator for continue watching
