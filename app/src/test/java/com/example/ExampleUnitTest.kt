@@ -49,5 +49,19 @@ class ExampleUnitTest {
     assertTrue(parsedHigh.harborScore > parsedStd.harborScore)
     assertEquals(StreamResolution.RES_720P, parsedStd.resolution)
   }
+
+  @Test
+  fun testHarborStreamParser_TorrentInfoHash() {
+    val streamItem = StremioStreamItem(
+      name = "Torrentio\n1080p",
+      title = "Dune.Part.Two.2024.1080p.BluRay.x264\n💾 10.5 GB | 👤 85",
+      infoHash = "4a5b6c7d8e9f0123456789abcdef0123456789ab",
+      fileIdx = 0
+    )
+    val parsed = HarborStreamParser.parse(streamItem, "Torrentio")
+    assertEquals(StreamResolution.RES_1080P, parsed.resolution)
+    assertEquals(85, parsed.seeders)
+    assertEquals("10.5 GB", parsed.fileSizeFormatted)
+  }
 }
 

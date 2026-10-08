@@ -49,48 +49,6 @@ object DefaultAddons {
             supportsSubtitles = true
         ),
         AddonEntity(
-            id = "community.torrentio",
-            manifestUrl = "https://torrentio.strem.fun/manifest.json",
-            name = "Torrentio",
-            version = "1.0.13",
-            description = "High-speed streams scraper with Real-Debrid, TorBox, and AllDebrid support.",
-            iconUrl = null,
-            isEnabled = true,
-            isOfficial = false,
-            orderIndex = 2,
-            supportsCatalog = false,
-            supportsStream = true,
-            supportsSubtitles = false
-        ),
-        AddonEntity(
-            id = "community.watchhub",
-            manifestUrl = "https://watchhub.strem.io/manifest.json",
-            name = "WatchHub",
-            version = "1.0.3",
-            description = "Official streams and VOD services (Netflix, Prime, Disney+, HBO Max, Apple TV).",
-            iconUrl = null,
-            isEnabled = true,
-            isOfficial = true,
-            orderIndex = 3,
-            supportsCatalog = false,
-            supportsStream = true,
-            supportsSubtitles = false
-        ),
-        AddonEntity(
-            id = "community.animekitsu",
-            manifestUrl = "https://anime-kitsu.strem.fun/manifest.json",
-            name = "Anime Kitsu",
-            version = "2.0.4",
-            description = "Anime series, movies, and trending catalogs powered by Kitsu.io.",
-            iconUrl = null,
-            isEnabled = true,
-            isOfficial = false,
-            orderIndex = 4,
-            supportsCatalog = true,
-            supportsStream = true,
-            supportsSubtitles = false
-        ),
-        AddonEntity(
             id = "community.cyberflix",
             manifestUrl = "https://cyberflix.elfhosted.com/manifest.json",
             name = "CyberFlix Catalog",
@@ -99,7 +57,7 @@ object DefaultAddons {
             iconUrl = null,
             isEnabled = true,
             isOfficial = false,
-            orderIndex = 5,
+            orderIndex = 2,
             supportsCatalog = true,
             supportsStream = false,
             supportsSubtitles = false
@@ -164,10 +122,10 @@ object DefaultAddons {
         )
     )
 
-    // Curated fallback showcase catalog (high quality metadata + playable test stream links)
+    // Curated fallback showcase catalog with real IMDb IDs matching Cinemeta & Torrentio
     val FALLBACK_CATALOG = listOf(
         StremioMetaSummary(
-            id = "harbor_dune2",
+            id = "tt15239678",
             type = "movie",
             name = "Dune: Part Two",
             poster = "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80",
@@ -178,7 +136,7 @@ object DefaultAddons {
             description = "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family."
         ),
         StremioMetaSummary(
-            id = "harbor_arcane",
+            id = "tt11126994",
             type = "series",
             name = "Arcane",
             poster = "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&q=80",
@@ -189,7 +147,7 @@ object DefaultAddons {
             description = "Set in the utopian region of Piltover and the oppressed underground of Zaun, the story follows the origins of two iconic champions."
         ),
         StremioMetaSummary(
-            id = "harbor_oppenheimer",
+            id = "tt15398776",
             type = "movie",
             name = "Oppenheimer",
             poster = "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=800&q=80",
@@ -200,7 +158,7 @@ object DefaultAddons {
             description = "The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb."
         ),
         StremioMetaSummary(
-            id = "harbor_cyberpunk",
+            id = "tt12590266",
             type = "series",
             name = "Cyberpunk: Edgerunners",
             poster = "https://images.unsplash.com/photo-1563089145-599997674d42?w=800&q=80",
@@ -211,7 +169,7 @@ object DefaultAddons {
             description = "A street kid trying to survive in a technology and body modification-obsessed city of the future decides to stay alive by becoming an edgerunner."
         ),
         StremioMetaSummary(
-            id = "harbor_interstellar",
+            id = "tt0816692",
             type = "movie",
             name = "Interstellar",
             poster = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80",
@@ -222,61 +180,15 @@ object DefaultAddons {
             description = "When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot is tasked to pilot a spacecraft along with a team of researchers."
         ),
         StremioMetaSummary(
-            id = "harbor_bbb",
-            type = "movie",
-            name = "Big Buck Bunny (4K Remaster)",
-            poster = "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&q=80",
-            background = "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=1600&q=80",
-            genres = listOf("Animation", "Comedy", "Short"),
-            releaseInfo = "2008",
-            imdbRating = "7.8",
-            description = "A large and lovable rabbit deals with bullying forest creatures in this iconic open-source benchmark animated film."
-        ),
-        StremioMetaSummary(
-            id = "harbor_tears_of_steel",
-            type = "movie",
-            name = "Tears of Steel (Sci-Fi VFX)",
+            id = "tt0903747",
+            type = "series",
+            name = "Breaking Bad",
             poster = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80",
-            background = "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&q=80",
-            genres = listOf("Sci-Fi", "Action", "Short"),
-            releaseInfo = "2012",
-            imdbRating = "7.2",
-            description = "Set in a dystopian future in Amsterdam, a group of scientists and warriors attempt to save the earth from destructive robotic giants."
-        ),
-        StremioMetaSummary(
-            id = "harbor_sintel",
-            type = "movie",
-            name = "Sintel",
-            poster = "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&q=80",
-            background = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&q=80",
-            genres = listOf("Animation", "Fantasy", "Short"),
-            releaseInfo = "2010",
-            imdbRating = "7.5",
-            description = "A lonely young woman searches the lands for a baby dragon she nursed to health, only to discover a heartbreaking truth."
-        )
-    )
-
-    // Playable demo streams
-    val SAMPLE_STREAMS = listOf(
-        StremioStreamItem(
-            name = "[RD+] Real-Debrid 4K",
-            title = "Harbor Direct 4K UHD Remux | ⚙️ 2160p HDR10+ | 💾 18.4 GB | 👤 320",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-        ),
-        StremioStreamItem(
-            name = "[RD+] Real-Debrid 1080p",
-            title = "Torrentio 1080p BluRay x265 | ⚙️ 1080p | 💾 4.2 GB | Dolby Atmos | 👤 145",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
-        ),
-        StremioStreamItem(
-            name = "Harbor Fast Stream 1080p",
-            title = "WEB-DL 1080p H264 AAC 5.1 | 💾 2.1 GB | 👤 89",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-        ),
-        StremioStreamItem(
-            name = "Harbor Mobile 720p",
-            title = "720p HD Optimized Fast Stream | 💾 950 MB | 👤 54",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            background = "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=1600&q=80",
+            genres = listOf("Crime", "Drama", "Thriller"),
+            releaseInfo = "2008-2013",
+            imdbRating = "9.5",
+            description = "A chemistry teacher diagnosed with inoperable lung cancer turns to manufacturing and selling methamphetamine."
         )
     )
 
@@ -288,30 +200,30 @@ object DefaultAddons {
             listOf(
                 StremioVideo(
                     id = "$id:1:1",
-                    title = "Episode 1: The Golden Harbor",
+                    title = "Episode 1",
                     season = 1,
                     episode = 1,
                     released = "2024-01-10",
                     thumbnail = summary.poster,
-                    overview = "An unexpected voyage begins across the neon-lit horizon as tensions flare."
+                    overview = "The introductory episode setting the stage for the journey."
                 ),
                 StremioVideo(
                     id = "$id:1:2",
-                    title = "Episode 2: Into the Depths",
+                    title = "Episode 2",
                     season = 1,
                     episode = 2,
                     released = "2024-01-17",
                     thumbnail = summary.background,
-                    overview = "The crew navigates perilous ocean currents and uncovers an ancient signal."
+                    overview = "The storyline deepens as challenges intensify."
                 ),
                 StremioVideo(
                     id = "$id:1:3",
-                    title = "Episode 3: The Beacon",
+                    title = "Episode 3",
                     season = 1,
                     episode = 3,
                     released = "2024-01-24",
                     thumbnail = summary.poster,
-                    overview = "Allies reunite at the harbor beacon as the storm reaches peak fury."
+                    overview = "Climactic revelations unfold across the horizon."
                 )
             )
         } else null

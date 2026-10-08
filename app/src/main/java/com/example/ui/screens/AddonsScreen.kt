@@ -169,6 +169,13 @@ fun AddonsScreen(
                                 {
                                     scope.launch {
                                         addonRepository.uninstallAddon(addon.id)
+                                        if (addon.id == "community.torrentio" || addon.manifestUrl.contains("torrentio")) {
+                                            context.getSharedPreferences("harbor_prefs", android.content.Context.MODE_PRIVATE)
+                                                .edit()
+                                                .putBoolean("torrentio_linked", false)
+                                                .apply()
+                                        }
+                                        Toast.makeText(context, "${addon.name} uninstalled", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             } else null
@@ -193,6 +200,12 @@ fun AddonsScreen(
                                 scope.launch {
                                     val res = addonRepository.installAddonFromUrl(listing.manifestUrl)
                                     if (res.isSuccess) {
+                                        if (listing.id == "community.torrentio" || listing.manifestUrl.contains("torrentio")) {
+                                            context.getSharedPreferences("harbor_prefs", android.content.Context.MODE_PRIVATE)
+                                                .edit()
+                                                .putBoolean("torrentio_linked", true)
+                                                .apply()
+                                        }
                                         Toast.makeText(context, "${listing.name} installed!", Toast.LENGTH_SHORT).show()
                                     } else {
                                         Toast.makeText(context, "Could not install: ${res.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()

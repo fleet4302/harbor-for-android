@@ -86,7 +86,7 @@ class WatchPartyRepository {
                 mediaType = "movie",
                 currentPositionMs = 125000L,
                 isPlaying = true,
-                currentStreamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                currentStreamUrl = null,
                 participants = listOf(host, me),
                 chatMessages = listOf(
                     WatchPartyMessage("1", "Harbor Relay", "Connected to room $formattedCode", System.currentTimeMillis() - 60000),

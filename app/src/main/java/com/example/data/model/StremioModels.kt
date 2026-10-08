@@ -122,3 +122,51 @@ data class StremioSubtitleItem(
     val url: String,
     val lang: String
 )
+
+@JsonClass(generateAdapter = true)
+data class StremioLoginRequest(
+    val email: String,
+    val password: String
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioLoginResponse(
+    val result: StremioLoginResult? = null,
+    val error: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioLoginResult(
+    val authKey: String,
+    val user: StremioUser? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioUser(
+    val _id: String? = null,
+    val email: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioAddonCollectionRequest(
+    val type: String = "AddonCollectionGet",
+    val authKey: String
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioAddonCollectionResponse(
+    val result: StremioAddonCollectionResult? = null,
+    val error: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioAddonCollectionResult(
+    val addons: List<StremioSyncedAddon>? = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioSyncedAddon(
+    val transportUrl: String,
+    val manifest: StremioManifest
+)
+

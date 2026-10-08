@@ -1,7 +1,12 @@
 package com.example.data.api
 
 import android.util.Log
+import com.example.data.model.StremioAddonCollectionRequest
+import com.example.data.model.StremioAddonCollectionResponse
 import com.example.data.model.StremioCatalogResponse
+import com.example.data.model.StremioLoginRequest
+import com.example.data.model.StremioLoginResponse
+import com.example.data.model.StremioLoginResult
 import com.example.data.model.StremioManifest
 import com.example.data.model.StremioMetaDetail
 import com.example.data.model.StremioMetaDetailResponse
@@ -9,12 +14,16 @@ import com.example.data.model.StremioMetaSummary
 import com.example.data.model.StremioStreamItem
 import com.example.data.model.StremioStreamResponse
 import com.example.data.model.StremioSubtitlesResponse
+import com.example.data.model.StremioSyncedAddon
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 class StremioApiClient {
@@ -41,6 +50,10 @@ class StremioApiClient {
     private val metaAdapter = moshi.adapter(StremioMetaDetailResponse::class.java)
     private val streamAdapter = moshi.adapter(StremioStreamResponse::class.java)
     private val subtitlesAdapter = moshi.adapter(StremioSubtitlesResponse::class.java)
+    private val loginRequestAdapter = moshi.adapter(StremioLoginRequest::class.java)
+    private val loginResponseAdapter = moshi.adapter(StremioLoginResponse::class.java)
+    private val addonCollectionRequestAdapter = moshi.adapter(StremioAddonCollectionRequest::class.java)
+    private val addonCollectionResponseAdapter = moshi.adapter(StremioAddonCollectionResponse::class.java)
 
     /**
      * Sanitizes addon URL to base URL without /manifest.json
@@ -148,10 +161,71 @@ class StremioApiClient {
                 }
                 val body = response.body?.string() ?: ""
                 val streamResp = streamAdapter.fromJson(body)
-                Result.success(streamResp?.streams ?: emptyList())
+                val rawStreams = streamResp?.streams ?: emptyList()
+
+                // Convert infoHash torrents without direct HTTP URL to magnet URIs
+                val processed = rawStreams.map { item ->
+                    if (item.url.isNullOrBlank() && !item.infoHash.isNullOrBlank()) {
+                        val titleEnc = try {
+                            URLEncoder.encode(item.title ?: item.name ?: "Torrent", "UTF-8")
+                        } catch (e: Exception) {
+                            "Torrent"
+                        }
+                        item.copy(url = "magnet:?xt=urn:btih:${item.infoHash}&dn=$titleEnc")
+                    } else {
+                        item
+                    }
+                }
+                Result.success(processed)
             }
         } catch (e: Exception) {
             Log.w("StremioApiClient", "Error fetching streams from $addonUrl: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun login(email: String, password: String): Result<StremioLoginResult> = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = loginRequestAdapter.toJson(StremioLoginRequest(email = email.trim(), password = password))
+            val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val request = Request.Builder()
+                .url("https://api.strem.io/api/login")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                val loginResp = loginResponseAdapter.fromJson(body)
+                if (loginResp?.result != null) {
+                    Result.success(loginResp.result)
+                } else {
+                    val errorMsg = loginResp?.error ?: "Login failed (HTTP ${response.code})"
+                    Result.failure(Exception(errorMsg))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("StremioApiClient", "Login error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getAddonCollection(authKey: String): Result<List<StremioSyncedAddon>> = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = addonCollectionRequestAdapter.toJson(StremioAddonCollectionRequest(authKey = authKey.trim()))
+            val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val request = Request.Builder()
+                .url("https://api.strem.io/api/addonCollectionGet")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                val collectionResp = addonCollectionResponseAdapter.fromJson(body)
+                val addons = collectionResp?.result?.addons ?: emptyList()
+                Result.success(addons)
+            }
+        } catch (e: Exception) {
+            Log.e("StremioApiClient", "AddonCollection error: ${e.message}", e)
             Result.failure(e)
         }
     }

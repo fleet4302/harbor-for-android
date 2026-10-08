@@ -159,7 +159,7 @@ fun WatchPartyScreen(
                                     hostName = userNameInput.ifBlank { "Host" },
                                     mediaTitle = "Dune: Part Two",
                                     mediaType = "movie",
-                                    streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                                    streamUrl = null
                                 )
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -282,17 +282,19 @@ fun WatchPartyScreen(
                     }
 
                     Row {
-                        IconButton(
-                            onClick = {
-                                val url = activeRoom.currentStreamUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                                onLaunchSyncedMedia(activeRoom.mediaTitle, url)
+                        if (!activeRoom.currentStreamUrl.isNullOrBlank()) {
+                            IconButton(
+                                onClick = {
+                                    val url = activeRoom.currentStreamUrl ?: return@IconButton
+                                    onLaunchSyncedMedia(activeRoom.mediaTitle, url)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Watch Now",
+                                    tint = theme.primary
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Watch Now",
-                                tint = theme.primary
-                            )
                         }
 
                         IconButton(

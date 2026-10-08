@@ -72,9 +72,10 @@ fun HarborApp() {
     // Repositories initialization
     val database = remember { HarborDatabase.getInstance(context) }
     val apiClient = remember { StremioApiClient() }
-    val addonRepository = remember { AddonRepository(database.addonDao(), apiClient) }
+    val stremioSession = remember { com.example.data.local.StremioAccountSession(context) }
+    val addonRepository = remember { AddonRepository(context, database.addonDao(), apiClient) }
     val catalogRepository = remember { CatalogRepository(addonRepository, apiClient) }
-    val streamResolver = remember { StreamResolverRepository(addonRepository, apiClient) }
+    val streamResolver = remember { StreamResolverRepository(context, addonRepository, apiClient) }
     val vaultRepository = remember { VaultRepository(database.watchHistoryDao(), database.watchlistDao()) }
     val watchPartyRepository = remember { WatchPartyRepository() }
 
@@ -100,6 +101,10 @@ fun HarborApp() {
                     streamResolverRepository = streamResolver,
                     vaultRepository = vaultRepository,
                     onBack = { currentScreen = HarborScreen.Main },
+                    onOpenSettings = {
+                        currentNavTab = HarborNavTab.SETTINGS
+                        currentScreen = HarborScreen.Main
+                    },
                     onPlayStream = { title, streamUrl, mediaId, season, episode, epTitle ->
                         currentScreen = HarborScreen.Player(
                             title = title,
@@ -195,7 +200,11 @@ fun HarborApp() {
                             HarborNavTab.SETTINGS -> {
                                 SettingsScreen(
                                     currentTheme = currentThemeStyle,
-                                    onThemeSelected = { currentThemeStyle = it }
+                                    onThemeSelected = { currentThemeStyle = it },
+                                    stremioSession = stremioSession,
+                                    apiClient = apiClient,
+                                    addonRepository = addonRepository,
+                                    streamResolverRepository = streamResolver
                                 )
                             }
                         }

@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,16 +28,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +64,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -81,6 +90,7 @@ fun MediaDetailScreen(
     streamResolverRepository: StreamResolverRepository,
     vaultRepository: VaultRepository,
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onPlayStream: (title: String, streamUrl: String, mediaId: String, season: Int?, episode: Int?, episodeTitle: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -528,17 +538,107 @@ fun MediaDetailScreen(
             // Stream cards list
             if (filteredStreams.isEmpty() && !isLoadingStreams) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No streams found for this filter. Check installed addons in Addons tab.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    val isSourceLinked = streamResolverRepository.isStreamSourceLinked()
+                    if (!isSourceLinked) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = theme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(theme.primary.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bolt,
+                                        contentDescription = "Torrentio",
+                                        tint = theme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "No Stream Sources Linked",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Harbor displays zero fake streams. Link Torrentio to aggregate torrents for movies and TV series across major trackers, or connect your Stremio cloud account.",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                isLoadingStreams = true
+                                                streamResolverRepository.linkTorrentio()
+                                                val streamQueryId = if (item.type == "series" && selectedEpisode != null) {
+                                                    "${item.id}:${selectedEpisode?.season ?: 1}:${selectedEpisode?.episode ?: 1}"
+                                                } else {
+                                                    item.id
+                                                }
+                                                streams = streamResolverRepository.resolveStreams(item.type, streamQueryId)
+                                                isLoadingStreams = false
+                                                Toast.makeText(context, "Torrentio linked! Aggregating torrent streams...", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = theme.primary,
+                                            contentColor = Color.Black
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Link Torrentio", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onOpenSettings,
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Settings / Stremio", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No torrent streams found on tracked sources for this selection.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             } else {
@@ -547,28 +647,51 @@ fun MediaDetailScreen(
                         StreamItemCard(
                             stream = st,
                             onPlay = {
-                                val url = st.rawStream.url ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                                val displayTitle = if (selectedEpisode != null && item.type == "series") {
-                                    "${item.name} - S${selectedEpisode?.season}:E${selectedEpisode?.episode}"
-                                } else {
-                                    item.name
+                                val url = st.rawStream.url ?: if (!st.rawStream.infoHash.isNullOrBlank()) {
+                                    "magnet:?xt=urn:btih:${st.rawStream.infoHash}"
+                                } else ""
+
+                                if (url.startsWith("magnet:")) {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        data = Uri.parse(url)
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    try {
+                                        context.startActivity(Intent.createChooser(intent, "Stream torrent with"))
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Magnet copied! Connect Debrid in Settings for direct HTTP stream.", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                } else if (url.isNotBlank()) {
+                                    val displayTitle = if (selectedEpisode != null && item.type == "series") {
+                                        "${item.name} - S${selectedEpisode?.season}:E${selectedEpisode?.episode}"
+                                    } else {
+                                        item.name
+                                    }
+                                    onPlayStream(
+                                        displayTitle,
+                                        url,
+                                        item.id,
+                                        selectedEpisode?.season,
+                                        selectedEpisode?.episode,
+                                        selectedEpisode?.title
+                                    )
                                 }
-                                onPlayStream(
-                                    displayTitle,
-                                    url,
-                                    item.id,
-                                    selectedEpisode?.season,
-                                    selectedEpisode?.episode,
-                                    selectedEpisode?.title
-                                )
                             },
                             onExternalPlay = {
-                                val url = st.rawStream.url ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(Uri.parse(url), "video/*")
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                val url = st.rawStream.url ?: if (!st.rawStream.infoHash.isNullOrBlank()) {
+                                    "magnet:?xt=urn:btih:${st.rawStream.infoHash}"
+                                } else ""
+                                if (url.isNotBlank()) {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        if (url.startsWith("magnet:")) {
+                                            data = Uri.parse(url)
+                                        } else {
+                                            setDataAndType(Uri.parse(url), "video/*")
+                                        }
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Open stream with"))
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Open stream with"))
                             }
                         )
                     }
