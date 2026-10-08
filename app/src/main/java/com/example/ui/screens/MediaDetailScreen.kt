@@ -484,6 +484,7 @@ fun MediaDetailScreen(
                         EpisodeCard(
                             episode = ep,
                             onSelect = {
+                                Log.d("MediaDetailScreen", "Episode clicked: ${ep.id}")
                                 selectedEpisode = ep
                             }
                         )
