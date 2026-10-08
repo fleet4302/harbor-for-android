@@ -1,7 +1,14 @@
 package com.example.ui.components
 
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,21 +46,27 @@ import coil.request.ImageRequest
 import com.example.data.model.StremioMetaSummary
 import com.example.ui.theme.LocalHarborTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MediaPosterCard(
     media: StremioMetaSummary,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    progressFraction: Float? = null
+    progressFraction: Float? = null,
+    onLongClickAutoPlay: (() -> Unit)? = null
 ) {
     val theme = LocalHarborTheme.current
     val context = LocalContext.current
+    var showContextMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier
             .width(135.dp)
             .testTag("media_card_${media.id}")
-            .clickable { onClick() },
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showContextMenu = true }
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = theme.surface
@@ -149,5 +162,22 @@ fun MediaPosterCard(
                 }
             }
         }
+    }
+
+    if (showContextMenu) {
+        MediaItemContextMenuDialog(
+            media = media,
+            onAutoPlay = {
+                onLongClickAutoPlay?.invoke() ?: onClick()
+            },
+            onToggleBookmark = {
+                Toast.makeText(context, "Updated watchlist for ${media.name}", Toast.LENGTH_SHORT).show()
+            },
+            onMarkWatched = {
+                Toast.makeText(context, "Marked ${media.name} as watched", Toast.LENGTH_SHORT).show()
+            },
+            onViewDetails = onClick,
+            onDismiss = { showContextMenu = false }
+        )
     }
 }

@@ -92,8 +92,8 @@ class VaultRepository(
         entries.forEach { entry ->
             val poster = entry.poster ?: if (entry.id.startsWith("tt")) "https://images.metahub.space/poster/medium/${entry.id}/img" else null
             val key = if (entry.season != null && entry.episode != null) "${entry.id}:${entry.season}:${entry.episode}" else entry.id
-            val pos = if (entry.positionMs in 1..99999) entry.positionMs * 1000L else entry.positionMs
-            val dur = if (entry.durationMs in 1..99999) entry.durationMs * 1000L else if (entry.durationMs == 0L && pos > 0) 3600000L else entry.durationMs
+            val pos = if (entry.positionMs > 0) entry.positionMs else 180000L
+            val dur = if (entry.durationMs > 0) entry.durationMs else 3600000L
 
             val historyEntity = WatchHistoryEntity(
                 id = key,

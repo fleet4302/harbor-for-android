@@ -355,93 +355,105 @@ class StremioApiClient {
      */
     suspend fun getLibraryItems(authKey: String): Result<List<com.example.data.model.StremioLibraryEntry>> = withContext(Dispatchers.IO) {
         try {
-            val jsonBody = org.json.JSONObject().apply {
-                put("authKey", authKey.trim())
-                put("collection", "libraryItem")
-            }.toString()
-            val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
-            val request = Request.Builder()
-                .url("https://api.strem.io/api/datastoreGet")
-                .post(requestBody)
-                .build()
+            val collectionsToFetch = listOf("libraryItem", "watchState")
+            val resultMap = mutableMapOf<String, com.example.data.model.StremioLibraryEntry>()
 
-            client.newCall(request).execute().use { response ->
-                val body = response.body?.string() ?: ""
-                if (body.isBlank()) {
-                    return@withContext Result.failure(Exception("Empty library response"))
-                }
+            for (col in collectionsToFetch) {
+                try {
+                    val jsonBody = org.json.JSONObject().apply {
+                        put("authKey", authKey.trim())
+                        put("collection", col)
+                    }.toString()
+                    val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+                    val request = Request.Builder()
+                        .url("https://api.strem.io/api/datastoreGet")
+                        .post(requestBody)
+                        .build()
 
-                val json = try {
-                    org.json.JSONObject(body)
-                } catch (e: Exception) {
-                    return@withContext Result.failure(Exception("Could not parse library JSON"))
-                }
+                    client.newCall(request).execute().use { response ->
+                        val body = response.body?.string() ?: ""
+                        if (body.isBlank()) return@use
 
-                val itemsArray = when {
-                    json.has("result") && json.optJSONArray("result") != null -> json.optJSONArray("result")
-                    json.has("result") && json.optJSONObject("result")?.has("items") == true -> json.optJSONObject("result")?.optJSONArray("items")
-                    else -> null
-                }
-
-                val list = mutableListOf<com.example.data.model.StremioLibraryEntry>()
-                if (itemsArray != null) {
-                    for (i in 0 until itemsArray.length()) {
-                        val itemObj = itemsArray.optJSONObject(i) ?: continue
-                        val id = itemObj.optString("_id", itemObj.optString("id", ""))
-                        val name = itemObj.optString("name", "Untitled")
-                        val type = itemObj.optString("type", "movie")
-                        var poster = if (itemObj.has("poster")) itemObj.optString("poster") else null
-                        val background = if (itemObj.has("background")) itemObj.optString("background") else null
-
-                        // If poster is null and it's an IMDb ID, use Cinemeta poster CDN
-                        if (poster.isNullOrBlank() && id.startsWith("tt")) {
-                            poster = "https://images.metahub.space/poster/medium/$id/img"
+                        val json = try {
+                            org.json.JSONObject(body)
+                        } catch (e: Exception) {
+                            return@use
                         }
 
-                        var season: Int? = null
-                        var episode: Int? = null
-                        var posMs = 0L
-                        var durMs = 0L
-                        val lastWatched = System.currentTimeMillis()
+                        val itemsArray = when {
+                            json.has("result") && json.optJSONArray("result") != null -> json.optJSONArray("result")
+                            json.has("result") && json.optJSONObject("result")?.has("items") == true -> json.optJSONObject("result")?.optJSONArray("items")
+                            else -> null
+                        } ?: return@use
 
-                        val stateObj = itemObj.optJSONObject("state")
-                        if (stateObj != null) {
-                            val rawPos = stateObj.optLong("timeOffset", 0L)
-                            val rawDur = stateObj.optLong("duration", 0L)
-                            // Convert seconds to milliseconds if stored in seconds
-                            posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
-                            durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
+                        for (i in 0 until itemsArray.length()) {
+                            val itemObj = itemsArray.optJSONObject(i) ?: continue
+                            val rawId = itemObj.optString("_id", itemObj.optString("id", itemObj.optString("key", "")))
+                            if (rawId.isBlank()) continue
 
-                            val videoId = stateObj.optString("video_id", "")
-                            if (videoId.contains(":")) {
-                                val parts = videoId.split(":")
-                                if (parts.size >= 3) {
-                                    season = parts[1].toIntOrNull()
-                                    episode = parts[2].toIntOrNull()
+                            val baseId = if (rawId.startsWith("tt") && rawId.contains(":")) rawId.substringBefore(":") else rawId
+                            val name = itemObj.optString("name", itemObj.optString("title", "Untitled"))
+                            val type = itemObj.optString("type", if (rawId.contains(":")) "series" else "movie")
+                            var poster = if (itemObj.has("poster")) itemObj.optString("poster") else null
+                            val background = if (itemObj.has("background")) itemObj.optString("background") else null
+
+                            if (poster.isNullOrBlank() && baseId.startsWith("tt")) {
+                                poster = "https://images.metahub.space/poster/medium/$baseId/img"
+                            }
+
+                            var season: Int? = null
+                            var episode: Int? = null
+                            var posMs = 0L
+                            var durMs = 0L
+                            var lastWatched = System.currentTimeMillis()
+
+                            if (itemObj.has("mtime")) {
+                                val mtime = itemObj.optLong("mtime", 0L)
+                                if (mtime > 0) lastWatched = mtime
+                            }
+
+                            val stateObj = itemObj.optJSONObject("state") ?: itemObj.optJSONObject("value")
+                            if (stateObj != null) {
+                                val rawPos = stateObj.optLong("timeOffset", stateObj.optLong("time", 0L))
+                                val rawDur = stateObj.optLong("duration", 0L)
+                                posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
+                                durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
+
+                                val videoId = stateObj.optString("video_id", stateObj.optString("videoId", ""))
+                                if (videoId.contains(":")) {
+                                    val parts = videoId.split(":")
+                                    if (parts.size >= 3) {
+                                        season = parts[1].toIntOrNull()
+                                        episode = parts[2].toIntOrNull()
+                                    }
                                 }
                             }
-                        }
 
-                        if (id.isNotBlank()) {
-                            list.add(
-                                com.example.data.model.StremioLibraryEntry(
-                                    id = id,
-                                    name = name,
-                                    type = type,
-                                    poster = poster,
-                                    background = background,
-                                    season = season,
-                                    episode = episode,
-                                    positionMs = posMs,
-                                    durationMs = durMs,
-                                    lastWatchedTimestamp = lastWatched
-                                )
+                            val entryKey = if (season != null && episode != null) "$baseId:$season:$episode" else baseId
+                            val existing = resultMap[entryKey]
+                            val mergedPos = if (posMs > 0) posMs else (existing?.positionMs ?: 120000L)
+                            val mergedDur = if (durMs > 0) durMs else (existing?.durationMs ?: 3600000L)
+
+                            resultMap[entryKey] = com.example.data.model.StremioLibraryEntry(
+                                id = baseId,
+                                name = if (name != "Untitled") name else (existing?.name ?: "Untitled"),
+                                type = type,
+                                poster = poster ?: existing?.poster,
+                                background = background ?: existing?.background,
+                                season = season ?: existing?.season,
+                                episode = episode ?: existing?.episode,
+                                positionMs = mergedPos,
+                                durationMs = mergedDur,
+                                lastWatchedTimestamp = lastWatched
                             )
                         }
                     }
+                } catch (e: Exception) {
+                    Log.e("StremioApiClient", "Error fetching datastore $col: ${e.message}")
                 }
-                Result.success(list)
             }
+
+            Result.success(resultMap.values.toList())
         } catch (e: Exception) {
             Log.e("StremioApiClient", "Error fetching library items: ${e.message}", e)
             Result.failure(e)

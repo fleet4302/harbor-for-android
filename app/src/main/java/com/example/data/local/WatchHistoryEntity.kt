@@ -32,7 +32,7 @@ interface WatchHistoryDao {
     @Query("SELECT * FROM watch_history ORDER BY lastWatchedTimestamp DESC")
     fun getAllHistory(): Flow<List<WatchHistoryEntity>>
 
-    @Query("SELECT * FROM watch_history WHERE positionMs > 0 AND (durationMs == 0 OR positionMs < (durationMs * 0.95)) ORDER BY lastWatchedTimestamp DESC LIMIT 20")
+    @Query("SELECT * FROM watch_history ORDER BY lastWatchedTimestamp DESC LIMIT 20")
     fun getContinueWatching(): Flow<List<WatchHistoryEntity>>
 
     @Query("SELECT * FROM watch_history WHERE id = :id LIMIT 1")

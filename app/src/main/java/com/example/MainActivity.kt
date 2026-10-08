@@ -51,6 +51,7 @@ sealed class HarborScreen {
 }
 
 class MainActivity : ComponentActivity() {
+    var isPlayingVideo: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +59,20 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             HarborApp()
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (isPlayingVideo && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val params = android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .build()
+                enterPictureInPictureMode(params)
+            } catch (e: Exception) {
+                // Ignore if PiP failed
+            }
         }
     }
 }
@@ -91,7 +106,21 @@ fun HarborApp() {
                     poster = screen.poster,
                     background = screen.background,
                     vaultRepository = vaultRepository,
-                    onBack = { currentScreen = HarborScreen.Main }
+                    catalogRepository = catalogRepository,
+                    streamResolverRepository = streamResolver,
+                    onBack = { currentScreen = HarborScreen.Main },
+                    onSwitchStream = { newTitle, newUrl, newMediaId, newS, newE, newEpTitle, newPoster, newBg ->
+                        currentScreen = HarborScreen.Player(
+                            title = newTitle,
+                            streamUrl = newUrl,
+                            mediaId = newMediaId,
+                            season = newS,
+                            episode = newE,
+                            episodeTitle = newEpTitle,
+                            poster = newPoster,
+                            background = newBg
+                        )
+                    }
                 )
             }
             is HarborScreen.MediaDetail -> {

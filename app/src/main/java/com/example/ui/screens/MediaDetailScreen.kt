@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.List
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -183,6 +185,84 @@ fun MediaDetailScreen(
                 Log.e("MediaDetailScreen", "Error refreshing streams", e)
             } finally {
                 isLoadingStreams = false
+            }
+        }
+    }
+
+    fun autoPlayBestStream(targetDetail: StremioMetaDetail) {
+        scope.launch {
+            isLoadingStreams = true
+            var availableStreams = streams
+            if (availableStreams.isEmpty()) {
+                val isSeries = targetDetail.type == "series" || targetDetail.type == "tv"
+                val ep = selectedEpisode ?: targetDetail.videos?.firstOrNull()
+                val streamQueryId = if (isSeries && ep != null) {
+                    val s = ep.season ?: 1
+                    val e = ep.episode ?: 1
+                    if (ep.id.startsWith("tt") && ep.id.count { it == ':' } >= 2) ep.id else "${targetDetail.id}:$s:$e"
+                } else {
+                    targetDetail.id
+                }
+                val streamType = if (isSeries) "series" else "movie"
+                availableStreams = streamResolverRepository.resolveStreams(streamType, streamQueryId)
+                streams = availableStreams
+            }
+            isLoadingStreams = false
+
+            if (availableStreams.isNotEmpty()) {
+                val topStream = availableStreams.first()
+                val ep = selectedEpisode ?: targetDetail.videos?.firstOrNull()
+                val epTitle = if (targetDetail.type == "series" && ep != null) {
+                    "S${ep.season ?: 1}:E${ep.episode ?: 1} - ${ep.title ?: "Episode 1"}"
+                } else null
+
+                val directUrl = topStream.rawStream.url
+                val magnetUri = if (directUrl?.startsWith("magnet:") == true) {
+                    directUrl
+                } else if (!topStream.rawStream.infoHash.isNullOrBlank()) {
+                    "magnet:?xt=urn:btih:${topStream.rawStream.infoHash}"
+                } else null
+
+                if (!directUrl.isNullOrBlank() && (directUrl.startsWith("http://") || directUrl.startsWith("https://"))) {
+                    onPlayStream(
+                        targetDetail.name,
+                        directUrl,
+                        targetDetail.id,
+                        ep?.season ?: if (targetDetail.type == "series") 1 else null,
+                        ep?.episode ?: if (targetDetail.type == "series") 1 else null,
+                        epTitle,
+                        targetDetail.poster,
+                        targetDetail.background
+                    )
+                } else if (!magnetUri.isNullOrBlank()) {
+                    isResolvingDebrid = true
+                    val res = streamResolverRepository.resolveMagnetViaDebrid(magnetUri)
+                    isResolvingDebrid = false
+                    if (res.isSuccess) {
+                        onPlayStream(
+                            targetDetail.name,
+                            res.getOrThrow(),
+                            targetDetail.id,
+                            ep?.season ?: if (targetDetail.type == "series") 1 else null,
+                            ep?.episode ?: if (targetDetail.type == "series") 1 else null,
+                            epTitle,
+                            targetDetail.poster,
+                            targetDetail.background
+                        )
+                    } else {
+                        Toast.makeText(context, "Stream requires Real-Debrid token to resolve magnet", Toast.LENGTH_LONG).show()
+                        showTorrentioSetup = true
+                    }
+                } else {
+                    Toast.makeText(context, "Direct stream URL unavailable. Choose another stream below.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                if (!streamResolverRepository.isStreamSourceLinked()) {
+                    Toast.makeText(context, "Link Torrentio or Stremio account to play real streams!", Toast.LENGTH_LONG).show()
+                    showTorrentioSetup = true
+                } else {
+                    Toast.makeText(context, "No active streams found for this title", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -441,10 +521,70 @@ fun MediaDetailScreen(
                 }
             }
 
+            // Netflix-style Primary PLAY Action Bar
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { autoPlayBestStream(item) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("detail_main_play_button"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = theme.primary,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isLoadingStreams || isResolvingDebrid) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.Black,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Selecting 4K Stream...", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (item.type == "series") "PLAY S${selectedSeason}:E1" else "PLAY MOVIE",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (streams.isEmpty()) {
+                                refreshStreams(item)
+                            }
+                            Toast.makeText(context, "Explore available streams below", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.height(48.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.List, contentDescription = "Streams", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Streams (${streams.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+
             // Overview synopsis
             if (!item.description.isNullOrBlank()) {
                 item {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(
                             text = "Synopsis",
                             fontSize = 14.sp,
@@ -458,6 +598,61 @@ fun MediaDetailScreen(
                             lineHeight = 18.sp,
                             color = Color(0xFFCBD5E1)
                         )
+                    }
+                }
+            }
+
+            // Starring / Cast & Crew Section
+            if (!item.cast.isNullOrEmpty() || !item.director.isNullOrEmpty()) {
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(
+                            text = "Starring & Cast",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(item.cast ?: emptyList()) { actor ->
+                                Card(
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = theme.surface),
+                                    modifier = Modifier.width(110.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                                .background(theme.surfaceVariant),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = actor.take(1).uppercase(),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp,
+                                                color = theme.primary
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = actor,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White,
+                                            maxLines = 2,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

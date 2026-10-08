@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalContext
+import com.example.ui.components.MediaPosterCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,7 +64,9 @@ import com.example.data.model.StremioMetaSummary
 import com.example.data.repository.CatalogRepository
 import com.example.data.repository.VaultRepository
 import com.example.ui.components.HeroBillboard
-import com.example.ui.components.MediaPosterCard
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import com.example.ui.components.BackgroundContextMenuDialog
 import com.example.ui.components.shimmerBrush
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.launch
@@ -75,6 +80,7 @@ fun DiscoverScreen(
     modifier: Modifier = Modifier
 ) {
     val theme = LocalHarborTheme.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var selectedType by remember { mutableStateOf("all") }
@@ -88,6 +94,7 @@ fun DiscoverScreen(
     var expandedSectionTitle by remember { mutableStateOf<String?>(null) }
     var expandedSectionItems by remember { mutableStateOf<List<StremioMetaSummary>>(emptyList()) }
     var expandedSearchQuery by remember { mutableStateOf("") }
+    var showBackgroundMenu by remember { mutableStateOf(false) }
 
     val continueWatching by vaultRepository.continueWatching.collectAsState(initial = emptyList())
 
@@ -271,6 +278,13 @@ fun DiscoverScreen(
         modifier = modifier
             .fillMaxSize()
             .background(theme.background)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        showBackgroundMenu = true
+                    }
+                )
+            }
             .testTag("discover_screen")
     ) {
         // Hero Billboard
@@ -508,6 +522,42 @@ fun DiscoverScreen(
         item {
             Spacer(modifier = Modifier.height(40.dp))
         }
+    }
+
+    if (showBackgroundMenu) {
+        BackgroundContextMenuDialog(
+            onRefresh = {
+                loadData()
+                Toast.makeText(context, "Refreshing catalogs...", Toast.LENGTH_SHORT).show()
+            },
+            onOpenSearch = {
+                Toast.makeText(context, "Use bottom navigation bar to open Search", Toast.LENGTH_SHORT).show()
+            },
+            onOpenSettings = {
+                Toast.makeText(context, "Use bottom navigation bar to open Settings", Toast.LENGTH_SHORT).show()
+            },
+            onSyncLibrary = {
+                val stremioSession = com.example.data.local.StremioAccountSession(context)
+                val authKey = stremioSession.getAuthKey()
+                if (authKey.isNullOrBlank()) {
+                    Toast.makeText(context, "Log in to Stremio in Settings to sync watched library", Toast.LENGTH_LONG).show()
+                } else {
+                    scope.launch {
+                        try {
+                            val apiClient = com.example.data.api.StremioApiClient()
+                            val libRes = apiClient.getLibraryItems(authKey)
+                            if (libRes.isSuccess) {
+                                val count = vaultRepository.syncLibraryFromStremio(libRes.getOrThrow())
+                                Toast.makeText(context, "Synced $count items from Stremio Cloud!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Sync error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            },
+            onDismiss = { showBackgroundMenu = false }
+        )
     }
 }
 

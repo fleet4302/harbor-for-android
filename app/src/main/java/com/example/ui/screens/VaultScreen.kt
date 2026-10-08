@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,17 +28,21 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -77,6 +82,7 @@ fun VaultScreen(
     val context = LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Continue Watching, 1: Watchlist, 2: History
+    var isSyncingStremio by remember { mutableStateOf(false) }
 
     val continueWatching by vaultRepository.continueWatching.collectAsState(initial = emptyList())
     val watchlist by vaultRepository.allWatchlist.collectAsState(initial = emptyList())
@@ -111,6 +117,48 @@ fun VaultScreen(
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            OutlinedButton(
+                onClick = {
+                    val stremioSession = com.example.data.local.StremioAccountSession(context)
+                    val authKey = stremioSession.getAuthKey()
+                    if (authKey.isNullOrBlank()) {
+                        Toast.makeText(context, "Log in to Stremio in Settings to sync watched library", Toast.LENGTH_LONG).show()
+                    } else {
+                        scope.launch {
+                            isSyncingStremio = true
+                            try {
+                                val apiClient = com.example.data.api.StremioApiClient()
+                                val libRes = apiClient.getLibraryItems(authKey)
+                                if (libRes.isSuccess) {
+                                    val count = vaultRepository.syncLibraryFromStremio(libRes.getOrThrow())
+                                    Toast.makeText(context, "Successfully synced $count items from Stremio Cloud!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Sync failed: ${libRes.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error syncing: ${e.message}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isSyncingStremio = false
+                            }
+                        }
+                    }
+                },
+                enabled = !isSyncingStremio,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (isSyncingStremio) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        color = theme.primary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(imageVector = Icons.Default.Sync, contentDescription = "Sync", modifier = Modifier.size(16.dp), tint = theme.primary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sync Stremio", fontSize = 11.sp, color = Color.White)
+                }
             }
         }
 

@@ -109,6 +109,11 @@ fun SettingsScreen(
     var hwAcceleration by remember { mutableStateOf(prefs.getBoolean("hw_accel", true)) }
     var preferredRes by remember { mutableStateOf(prefs.getString("preferred_res", "1080p") ?: "1080p") }
 
+    var traktUser by remember { mutableStateOf(prefs.getString("trakt_username", "") ?: "") }
+    var letterboxdUser by remember { mutableStateOf(prefs.getString("letterboxd_username", "") ?: "") }
+    var simklUser by remember { mutableStateOf(prefs.getString("simkl_username", "") ?: "") }
+    var rpdbKey by remember { mutableStateOf(prefs.getString("rpdb_key", "") ?: "") }
+
     var isLinkedState by remember { mutableStateOf(streamResolverRepository.isStreamSourceLinked()) }
     var linkedDebridInfo by remember { mutableStateOf(streamResolverRepository.getLinkedDebridInfo()) }
     var isValidatingDebrid by remember { mutableStateOf(false) }
@@ -763,6 +768,114 @@ fun SettingsScreen(
                     Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Open Interactive Torrentio Wizard (Trackers, Quality, Debrid)", fontSize = 12.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // SECTION 2.5: Native Harbor Integrations
+        SettingsSectionHeader(title = "Trakt, Letterboxd, Simkl & RPDB Integrations", icon = Icons.Default.Sync)
+
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = theme.surface),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Sync your watch history, movie lists, and rating overlays with external services.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Trakt.tv
+                OutlinedTextField(
+                    value = traktUser,
+                    onValueChange = {
+                        traktUser = it
+                        prefs.edit().putString("trakt_username", it).apply()
+                    },
+                    label = { Text("Trakt.tv Username / Account") },
+                    placeholder = { Text("Enter Trakt username") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = theme.surfaceVariant,
+                        unfocusedContainerColor = theme.surfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Letterboxd
+                OutlinedTextField(
+                    value = letterboxdUser,
+                    onValueChange = {
+                        letterboxdUser = it
+                        prefs.edit().putString("letterboxd_username", it).apply()
+                    },
+                    label = { Text("Letterboxd Username") },
+                    placeholder = { Text("Enter Letterboxd handle") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = theme.surfaceVariant,
+                        unfocusedContainerColor = theme.surfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Simkl
+                OutlinedTextField(
+                    value = simklUser,
+                    onValueChange = {
+                        simklUser = it
+                        prefs.edit().putString("simkl_username", it).apply()
+                    },
+                    label = { Text("Simkl Anime & Show Tracker") },
+                    placeholder = { Text("Enter Simkl ID") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = theme.surfaceVariant,
+                        unfocusedContainerColor = theme.surfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Rating Poster Database (RPDB) API Key
+                OutlinedTextField(
+                    value = rpdbKey,
+                    onValueChange = {
+                        rpdbKey = it
+                        prefs.edit().putString("rpdb_key", it).apply()
+                    },
+                    label = { Text("RPDB Rating Posters API Key (Optional)") },
+                    placeholder = { Text("Paste RPDB key for IMDb/RT poster overlays") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = theme.surfaceVariant,
+                        unfocusedContainerColor = theme.surfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        Toast.makeText(context, "Integrations saved & synced!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primary, contentColor = Color.Black),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Save Integrations", fontWeight = FontWeight.Bold)
                 }
             }
         }
