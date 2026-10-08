@@ -100,6 +100,9 @@ fun HarborApp() {
                     catalogRepository = catalogRepository,
                     streamResolverRepository = streamResolver,
                     vaultRepository = vaultRepository,
+                    stremioSession = stremioSession,
+                    apiClient = apiClient,
+                    addonRepository = addonRepository,
                     onBack = { currentScreen = HarborScreen.Main },
                     onOpenSettings = {
                         currentNavTab = HarborNavTab.SETTINGS

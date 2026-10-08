@@ -69,15 +69,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.data.api.StremioApiClient
+import com.example.data.local.StremioAccountSession
 import com.example.data.model.HarborParsedStream
 import com.example.data.model.StremioMetaDetail
 import com.example.data.model.StremioVideo
 import com.example.data.model.StreamResolution
+import com.example.data.repository.AddonRepository
 import com.example.data.repository.CatalogRepository
 import com.example.data.repository.StreamResolverRepository
 import com.example.data.repository.VaultRepository
 import com.example.ui.components.EpisodeCard
+import com.example.ui.components.MediaDetailSkeleton
 import com.example.ui.components.StreamItemCard
+import com.example.ui.components.StreamLoadingSkeletonList
+import com.example.ui.components.StreamRadarScanningCard
+import com.example.ui.components.StremioLoginDialog
+import com.example.ui.components.TorrentioSetupDialog
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.launch
 
@@ -89,6 +97,9 @@ fun MediaDetailScreen(
     catalogRepository: CatalogRepository,
     streamResolverRepository: StreamResolverRepository,
     vaultRepository: VaultRepository,
+    stremioSession: StremioAccountSession,
+    apiClient: StremioApiClient,
+    addonRepository: AddonRepository,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onPlayStream: (title: String, streamUrl: String, mediaId: String, season: Int?, episode: Int?, episodeTitle: String?) -> Unit,
@@ -107,7 +118,33 @@ fun MediaDetailScreen(
     var selectedEpisode by remember { mutableStateOf<StremioVideo?>(null) }
     var streamFilterRes by remember { mutableStateOf<StreamResolution?>(null) }
 
+    var showTorrentioSetup by remember { mutableStateOf(false) }
+    var showStremioLogin by remember { mutableStateOf(false) }
+
+    var isResolvingDebrid by remember { mutableStateOf(false) }
+    var debridResolutionError by remember { mutableStateOf<String?>(null) }
+    var showDebridRequiredDialog by remember { mutableStateOf<String?>(null) }
+    var pendingExternalMagnetUrl by remember { mutableStateOf<String?>(null) }
+
     val isBookmarked by vaultRepository.isBookmarked(mediaId).collectAsState(initial = false)
+
+    fun refreshStreams(targetDetail: StremioMetaDetail) {
+        scope.launch {
+            isLoadingStreams = true
+            try {
+                val streamQueryId = if (targetDetail.type == "series" && selectedEpisode != null) {
+                    val s = selectedEpisode?.season ?: 1
+                    val e = selectedEpisode?.episode ?: 1
+                    "${targetDetail.id}:$s:$e"
+                } else {
+                    targetDetail.id
+                }
+                streams = streamResolverRepository.resolveStreams(targetDetail.type, streamQueryId)
+            } finally {
+                isLoadingStreams = false
+            }
+        }
+    }
 
     BackHandler {
         onBack()
@@ -130,33 +167,11 @@ fun MediaDetailScreen(
     // Load streams for either the movie or the currently selected episode
     LaunchedEffect(detail, selectedEpisode) {
         val currentDetail = detail ?: return@LaunchedEffect
-        isLoadingStreams = true
-        try {
-            val streamQueryId = if (currentDetail.type == "series" && selectedEpisode != null) {
-                // Stremio series stream query format: id:season:episode
-                val s = selectedEpisode?.season ?: 1
-                val e = selectedEpisode?.episode ?: 1
-                "${currentDetail.id}:$s:$e"
-            } else {
-                currentDetail.id
-            }
-
-            val resolved = streamResolverRepository.resolveStreams(currentDetail.type, streamQueryId)
-            streams = resolved
-        } finally {
-            isLoadingStreams = false
-        }
+        refreshStreams(currentDetail)
     }
 
     if (isLoadingDetail) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(theme.background),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = theme.primary)
-        }
+        MediaDetailSkeleton()
         return
     }
 
@@ -536,7 +551,14 @@ fun MediaDetailScreen(
             }
 
             // Stream cards list
-            if (filteredStreams.isEmpty() && !isLoadingStreams) {
+            if (isLoadingStreams) {
+                item {
+                    StreamRadarScanningCard()
+                }
+                item {
+                    StreamLoadingSkeletonList(count = 4)
+                }
+            } else if (filteredStreams.isEmpty()) {
                 item {
                     val isSourceLinked = streamResolverRepository.isStreamSourceLinked()
                     if (!isSourceLinked) {
@@ -576,7 +598,7 @@ fun MediaDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Harbor displays zero fake streams. Link Torrentio to aggregate torrents for movies and TV series across major trackers, or connect your Stremio cloud account.",
+                                    text = "Harbor displays zero fake streams. Configure Torrentio or connect your Stremio cloud account to aggregate real torrents and Debrid streams across major trackers.",
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center,
                                     lineHeight = 16.sp,
@@ -592,13 +614,7 @@ fun MediaDetailScreen(
                                             scope.launch {
                                                 isLoadingStreams = true
                                                 streamResolverRepository.linkTorrentio()
-                                                val streamQueryId = if (item.type == "series" && selectedEpisode != null) {
-                                                    "${item.id}:${selectedEpisode?.season ?: 1}:${selectedEpisode?.episode ?: 1}"
-                                                } else {
-                                                    item.id
-                                                }
-                                                streams = streamResolverRepository.resolveStreams(item.type, streamQueryId)
-                                                isLoadingStreams = false
+                                                refreshStreams(item)
                                                 Toast.makeText(context, "Torrentio linked! Aggregating torrent streams...", Toast.LENGTH_SHORT).show()
                                             }
                                         },
@@ -609,19 +625,25 @@ fun MediaDetailScreen(
                                         ),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(15.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Link Torrentio", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Quick Link", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                     }
 
                                     OutlinedButton(
-                                        onClick = onOpenSettings,
+                                        onClick = { showTorrentioSetup = true },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Settings / Stremio", fontSize = 12.sp)
+                                        Text("Setup Wizard", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { showStremioLogin = true },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Login", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -651,22 +673,14 @@ fun MediaDetailScreen(
                                     "magnet:?xt=urn:btih:${st.rawStream.infoHash}"
                                 } else ""
 
-                                if (url.startsWith("magnet:")) {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        data = Uri.parse(url)
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    try {
-                                        context.startActivity(Intent.createChooser(intent, "Stream torrent with"))
-                                    } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context, "Magnet copied! Connect Debrid in Settings for direct HTTP stream.", android.widget.Toast.LENGTH_LONG).show()
-                                    }
-                                } else if (url.isNotBlank()) {
-                                    val displayTitle = if (selectedEpisode != null && item.type == "series") {
-                                        "${item.name} - S${selectedEpisode?.season}:E${selectedEpisode?.episode}"
-                                    } else {
-                                        item.name
-                                    }
+                                val displayTitle = if (selectedEpisode != null && item.type == "series") {
+                                    "${item.name} - S${selectedEpisode?.season}:E${selectedEpisode?.episode}"
+                                } else {
+                                    item.name
+                                }
+
+                                if (url.startsWith("http://") || url.startsWith("https://")) {
+                                    // Direct HTTP stream (Debrid-resolved or direct CDN stream) -> play in native video player!
                                     onPlayStream(
                                         displayTitle,
                                         url,
@@ -675,6 +689,33 @@ fun MediaDetailScreen(
                                         selectedEpisode?.episode,
                                         selectedEpisode?.title
                                     )
+                                } else if (url.startsWith("magnet:")) {
+                                    val debridInfo = streamResolverRepository.getLinkedDebridInfo()
+                                    if (debridInfo != null) {
+                                        // Resolve magnet directly via Real-Debrid API to obtain high-speed HTTP video stream
+                                        scope.launch {
+                                            isResolvingDebrid = true
+                                            val res = streamResolverRepository.resolveMagnetViaDebrid(url)
+                                            isResolvingDebrid = false
+                                            if (res.isSuccess) {
+                                                val directHttpUrl = res.getOrThrow()
+                                                onPlayStream(
+                                                    displayTitle,
+                                                    directHttpUrl,
+                                                    item.id,
+                                                    selectedEpisode?.season,
+                                                    selectedEpisode?.episode,
+                                                    selectedEpisode?.title
+                                                )
+                                            } else {
+                                                debridResolutionError = res.exceptionOrNull()?.message ?: "Torrent not cached in Debrid"
+                                                pendingExternalMagnetUrl = url
+                                            }
+                                        }
+                                    } else {
+                                        // Prompt user to connect Debrid or choose external player
+                                        showDebridRequiredDialog = url
+                                    }
                                 }
                             },
                             onExternalPlay = {
@@ -690,7 +731,11 @@ fun MediaDetailScreen(
                                         }
                                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                     }
-                                    context.startActivity(Intent.createChooser(intent, "Open stream with"))
+                                    try {
+                                        context.startActivity(Intent.createChooser(intent, "Open stream with"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No external app installed to handle stream", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         )
@@ -701,6 +746,192 @@ fun MediaDetailScreen(
             item {
                 Spacer(modifier = Modifier.height(40.dp))
             }
+        }
+
+        if (showTorrentioSetup) {
+            val prefs = remember { context.getSharedPreferences("harbor_prefs", android.content.Context.MODE_PRIVATE) }
+            TorrentioSetupDialog(
+                streamResolverRepository = streamResolverRepository,
+                initialCustomUrl = prefs.getString("custom_torrentio_url", "") ?: "",
+                initialDebridKey = prefs.getString("debrid_key", "") ?: "",
+                onDismiss = { showTorrentioSetup = false },
+                onSaved = {
+                    showTorrentioSetup = false
+                    refreshStreams(item)
+                }
+            )
+        }
+
+        if (showStremioLogin) {
+            StremioLoginDialog(
+                stremioSession = stremioSession,
+                apiClient = apiClient,
+                addonRepository = addonRepository,
+                onDismiss = { showStremioLogin = false },
+                onSuccess = {
+                    showStremioLogin = false
+                    refreshStreams(item)
+                }
+            )
+        }
+
+        // Resolving direct HTTP stream via Debrid loading dialog
+        if (isResolvingDebrid) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {},
+                containerColor = theme.surface,
+                title = {
+                    Text("Debrid Cloud Stream", fontWeight = FontWeight.Bold, color = Color.White)
+                },
+                text = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = theme.primary,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Column {
+                            Text("Resolving cached torrent...", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color.White)
+                            Text("Generating direct high-speed HTTP link for native playback.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                },
+                confirmButton = {}
+            )
+        }
+
+        // Debrid Required Dialog (when clicking raw magnet without Debrid)
+        if (showDebridRequiredDialog != null) {
+            val magnetUrl = showDebridRequiredDialog ?: ""
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showDebridRequiredDialog = null },
+                containerColor = theme.surface,
+                icon = {
+                    Icon(imageVector = Icons.Default.Bolt, contentDescription = null, tint = theme.primary)
+                },
+                title = {
+                    Text("Native Streaming Setup", fontWeight = FontWeight.Bold, color = Color.White)
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Harbor's built-in native player requires Real-Debrid or TorBox to convert P2P torrents into direct high-speed HTTP streams without buffering.",
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "If you don't have Real-Debrid, you can open this torrent with an external torrent player (like Flux or Stremio).",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            showDebridRequiredDialog = null
+                            onOpenSettings()
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = theme.primary,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Setup Real-Debrid", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            showDebridRequiredDialog = null
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse(magnetUrl)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(intent, "Stream torrent with"))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Magnet copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("External App")
+                    }
+                }
+            )
+        }
+
+        // Debrid Resolution Error / Not Cached Dialog
+        if (debridResolutionError != null) {
+            val magnetUrl = pendingExternalMagnetUrl ?: ""
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    debridResolutionError = null
+                    pendingExternalMagnetUrl = null
+                },
+                containerColor = theme.surface,
+                title = {
+                    Text("Torrent Not Instantly Cached", fontWeight = FontWeight.Bold, color = Color.White)
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = debridResolutionError ?: "This torrent is not currently cached in your Debrid cloud.",
+                            fontSize = 13.sp,
+                            color = Color(0xFFEF4444)
+                        )
+                        Text(
+                            text = "You can stream it using an external P2P torrent client (Flux / Stremio) or try another stream with higher seeds.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    if (magnetUrl.isNotBlank()) {
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                debridResolutionError = null
+                                pendingExternalMagnetUrl = null
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse(magnetUrl)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(intent, "Stream torrent with"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Magnet copied!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = theme.primary,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Stream with External App", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            debridResolutionError = null
+                            pendingExternalMagnetUrl = null
+                        },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Dismiss")
+                    }
+                }
+            )
         }
     }
 }

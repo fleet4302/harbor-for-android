@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.StremioMetaSummary
 import com.example.data.repository.CatalogRepository
 import com.example.ui.components.MediaPosterCard
+import com.example.ui.components.shimmerBrush
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -208,13 +209,25 @@ fun SearchScreen(
 
         // Search Content or Empty State
         if (isSearching) {
-            Box(
+            val brush = shimmerBrush()
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
+                    .weight(1f)
             ) {
-                CircularProgressIndicator(color = theme.primary)
+                items(6) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(brush)
+                    )
+                }
             }
         } else if (searchQuery.isNotBlank() && searchResults.isEmpty()) {
             Box(

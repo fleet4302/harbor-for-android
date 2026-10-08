@@ -195,12 +195,54 @@ class StremioApiClient {
 
             client.newCall(request).execute().use { response ->
                 val body = response.body?.string() ?: ""
-                val loginResp = loginResponseAdapter.fromJson(body)
-                if (loginResp?.result != null) {
-                    Result.success(loginResp.result)
+                if (body.isBlank()) {
+                    return@withContext Result.failure(Exception("Empty response from Stremio (HTTP ${response.code})"))
+                }
+
+                val json = try {
+                    org.json.JSONObject(body)
+                } catch (e: Exception) {
+                    return@withContext Result.failure(Exception("Failed to parse Stremio response: ${e.message}"))
+                }
+
+                // Handle error field dynamically (can be String or JSONObject)
+                if (json.has("error") && !json.isNull("error")) {
+                    val errorMsg = when (val err = json.opt("error")) {
+                        is org.json.JSONObject -> err.optString("message", err.optString("description", err.toString()))
+                        is String -> err
+                        else -> err?.toString() ?: "Unknown error"
+                    }
+                    return@withContext Result.failure(Exception(errorMsg))
+                }
+
+                // Handle result field dynamically (can be JSONObject with authKey/user or authKey string)
+                if (json.has("result") && !json.isNull("result")) {
+                    when (val res = json.opt("result")) {
+                        is org.json.JSONObject -> {
+                            val authKey = res.optString("authKey", "")
+                            if (authKey.isBlank()) {
+                                return@withContext Result.failure(Exception("No authKey in Stremio result"))
+                            }
+                            val userObj = res.optJSONObject("user")
+                            val user = if (userObj != null) {
+                                com.example.data.model.StremioUser(
+                                    _id = userObj.optString("_id", userObj.optString("id", null)),
+                                    email = userObj.optString("email", email.trim())
+                                )
+                            } else {
+                                com.example.data.model.StremioUser(email = email.trim())
+                            }
+                            Result.success(StremioLoginResult(authKey = authKey, user = user))
+                        }
+                        is String -> {
+                            Result.success(StremioLoginResult(authKey = res, user = com.example.data.model.StremioUser(email = email.trim())))
+                        }
+                        else -> {
+                            Result.failure(Exception("Unexpected login result structure"))
+                        }
+                    }
                 } else {
-                    val errorMsg = loginResp?.error ?: "Login failed (HTTP ${response.code})"
-                    Result.failure(Exception(errorMsg))
+                    Result.failure(Exception("Login failed (HTTP ${response.code})"))
                 }
             }
         } catch (e: Exception) {
@@ -220,6 +262,25 @@ class StremioApiClient {
 
             client.newCall(request).execute().use { response ->
                 val body = response.body?.string() ?: ""
+                if (body.isBlank()) {
+                    return@withContext Result.failure(Exception("Empty response from Stremio (HTTP ${response.code})"))
+                }
+
+                val json = try {
+                    org.json.JSONObject(body)
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (json != null && json.has("error") && !json.isNull("error")) {
+                    val errorMsg = when (val err = json.opt("error")) {
+                        is org.json.JSONObject -> err.optString("message", err.toString())
+                        is String -> err
+                        else -> err?.toString() ?: "AuthKey error"
+                    }
+                    return@withContext Result.failure(Exception(errorMsg))
+                }
+
                 val collectionResp = addonCollectionResponseAdapter.fromJson(body)
                 val addons = collectionResp?.result?.addons ?: emptyList()
                 Result.success(addons)
@@ -227,6 +288,39 @@ class StremioApiClient {
         } catch (e: Exception) {
             Log.e("StremioApiClient", "AddonCollection error: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Validates that a Torrentio manifest URL is reachable and well-formed
+     */
+    suspend fun validateTorrentioManifest(url: String): Result<StremioManifest> = withContext(Dispatchers.IO) {
+        val clean = url.trim()
+        if (clean.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Torrentio URL cannot be empty"))
+        }
+        val res = fetchManifest(clean)
+        if (res.isSuccess) {
+            val manifest = res.getOrThrow()
+            if (manifest.id.contains("torrentio", ignoreCase = true) || manifest.name.contains("torrentio", ignoreCase = true)) {
+                Result.success(manifest)
+            } else {
+                // Still allow other stream providers if they provide streams
+                val supportsStreams = manifest.resources?.any { res ->
+                    when (res) {
+                        is String -> res == "stream"
+                        is Map<*, *> -> res["name"] == "stream"
+                        else -> false
+                    }
+                } ?: false
+                if (supportsStreams) {
+                    Result.success(manifest)
+                } else {
+                    Result.failure(Exception("Addon '${manifest.name}' does not provide video streams"))
+                }
+            }
+        } else {
+            Result.failure(res.exceptionOrNull() ?: Exception("Cannot connect to Torrentio manifest at $clean"))
         }
     }
 }

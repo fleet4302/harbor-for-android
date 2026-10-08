@@ -59,4 +59,49 @@ class ExampleRobolectricTest {
     streamResolver.unlinkTorrentio()
     assertFalse(streamResolver.isStreamSourceLinked())
   }
+
+  @Test
+  fun `debrid key validation with empty token fails gracefully`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val database = HarborDatabase.getInstance(context)
+    val apiClient = StremioApiClient()
+    val addonRepo = AddonRepository(context, database.addonDao(), apiClient)
+    val streamResolver = StreamResolverRepository(context, addonRepo, apiClient)
+
+    val res = streamResolver.validateDebridKey("realdebrid", "")
+    assertTrue(res.isFailure)
+  }
+
+  @Test
+  fun `saving verified debrid info updates getLinkedDebridInfo and unlinkDebrid clears it`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val database = HarborDatabase.getInstance(context)
+    val apiClient = StremioApiClient()
+    val addonRepo = AddonRepository(context, database.addonDao(), apiClient)
+    val streamResolver = StreamResolverRepository(context, addonRepo, apiClient)
+
+    val mockInfo = com.example.data.api.DebridAccountInfo(
+        service = "Real-Debrid",
+        username = "TestUser",
+        email = "test@example.com",
+        isPremium = true,
+        expiration = "2026-12-31",
+        daysRemaining = 60
+    )
+
+    streamResolver.linkTorrentio(
+        debridKey = "sample_rd_key",
+        debridService = "realdebrid",
+        verifiedInfo = mockInfo
+    )
+
+    val info = streamResolver.getLinkedDebridInfo()
+    assertTrue(info != null)
+    assertEquals("TestUser", info?.username)
+    assertTrue(info?.isPremium == true)
+
+    streamResolver.unlinkDebrid()
+    val cleared = streamResolver.getLinkedDebridInfo()
+    assertTrue(cleared == null)
+  }
 }

@@ -74,9 +74,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.data.repository.VaultRepository
@@ -121,14 +124,27 @@ fun HarborPlayerScreen(
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekSliderPosition by remember { mutableFloatStateOf(0f) }
 
-    // ExoPlayer initialization
+    var playerError by remember { mutableStateOf<String?>(null) }
+
+    // ExoPlayer initialization with cross-protocol redirects & streaming support
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
-            setMediaItem(mediaItem)
-            prepare()
-        }
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Harbor-Android/1.0.0 (Linux; Android)")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(30000)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(httpDataSourceFactory)
+
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
+                playWhenReady = true
+                val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
+                setMediaItem(mediaItem)
+                prepare()
+            }
     }
 
     BackHandler {
@@ -141,12 +157,19 @@ fun HarborPlayerScreen(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
                 if (playbackState == Player.STATE_READY) {
+                    playerError = null
                     durationMs = exoPlayer.duration.coerceAtLeast(0L)
                 }
             }
 
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                isBuffering = false
+                val reason = error.localizedMessage ?: "Playback error: ${error.errorCodeName}"
+                playerError = reason
             }
         }
         exoPlayer.addListener(listener)
@@ -253,7 +276,7 @@ fun HarborPlayerScreen(
         }
 
         // Buffering Indicator
-        if (isBuffering) {
+        if (isBuffering && playerError == null) {
             Box(
                 modifier = Modifier.align(Alignment.Center)
             ) {
@@ -262,6 +285,111 @@ fun HarborPlayerScreen(
                     strokeWidth = 3.dp,
                     modifier = Modifier.size(52.dp)
                 )
+            }
+        }
+
+        // Playback Error Overlay
+        if (playerError != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.92f))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444).copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Native Playback Error",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = playerError ?: "Unable to stream source",
+                        color = Color(0xFFEF4444),
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                playerError = null
+                                isBuffering = true
+                                exoPlayer.prepare()
+                                exoPlayer.play()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = theme.primary,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Retry Playback", fontWeight = FontWeight.Bold)
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    if (streamUrl.startsWith("magnet:")) {
+                                        data = Uri.parse(streamUrl)
+                                    } else {
+                                        setDataAndType(Uri.parse(streamUrl), "video/*")
+                                    }
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(intent, "Open stream with"))
+                                } catch (e: Exception) {
+                                    // ignore
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("External Player", color = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    androidx.compose.material3.TextButton(onClick = {
+                        exoPlayer.stop()
+                        onBack()
+                    }) {
+                        Text("Back to Details", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
 

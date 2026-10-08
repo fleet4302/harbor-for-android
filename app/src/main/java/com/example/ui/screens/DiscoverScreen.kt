@@ -49,6 +49,7 @@ import com.example.data.repository.CatalogRepository
 import com.example.data.repository.VaultRepository
 import com.example.ui.components.HeroBillboard
 import com.example.ui.components.MediaPosterCard
+import com.example.ui.components.shimmerBrush
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.launch
 
@@ -99,13 +100,57 @@ fun DiscoverScreen(
     }
 
     if (isLoading && popularMovies.isEmpty() && popularSeries.isEmpty()) {
-        Box(
+        val brush = shimmerBrush()
+        Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(theme.background),
-            contentAlignment = Alignment.Center
+                .background(theme.background)
         ) {
-            CircularProgressIndicator(color = theme.primary)
+            // Billboard skeleton
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp)
+                    .background(brush)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Pills skeleton
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 90.dp, height = 32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(brush)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Posters skeleton row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 110.dp, height = 165.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(brush)
+                    )
+                }
+            }
         }
         return
     }

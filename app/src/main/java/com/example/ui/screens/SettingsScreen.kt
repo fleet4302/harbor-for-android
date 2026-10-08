@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Sync
@@ -47,6 +50,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,6 +74,8 @@ import com.example.data.local.StremioAccountSession
 import com.example.data.model.HarborThemeStyle
 import com.example.data.repository.AddonRepository
 import com.example.data.repository.StreamResolverRepository
+import com.example.ui.components.StremioLoginDialog
+import com.example.ui.components.TorrentioSetupDialog
 import com.example.ui.theme.LocalHarborTheme
 import kotlinx.coroutines.launch
 
@@ -102,6 +108,17 @@ fun SettingsScreen(
     var autoPlayNext by remember { mutableStateOf(prefs.getBoolean("autoplay_next", true)) }
     var hwAcceleration by remember { mutableStateOf(prefs.getBoolean("hw_accel", true)) }
     var preferredRes by remember { mutableStateOf(prefs.getString("preferred_res", "1080p") ?: "1080p") }
+
+    var isLinkedState by remember { mutableStateOf(streamResolverRepository.isStreamSourceLinked()) }
+    var linkedDebridInfo by remember { mutableStateOf(streamResolverRepository.getLinkedDebridInfo()) }
+    var isValidatingDebrid by remember { mutableStateOf(false) }
+    var debridErrorMessage by remember { mutableStateOf<String?>(null) }
+    var debridSuccessMessage by remember { mutableStateOf<String?>(null) }
+    var isValidatingTorrentio by remember { mutableStateOf(false) }
+    var torrentioErrorMessage by remember { mutableStateOf<String?>(null) }
+
+    var showTorrentioSetup by remember { mutableStateOf(false) }
+    var showStremioLogin by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -175,6 +192,7 @@ fun SettingsScreen(
                         IconButton(
                             onClick = {
                                 stremioSession.clearSession()
+                                isLinkedState = streamResolverRepository.isStreamSourceLinked()
                                 Toast.makeText(context, "Logged out of Stremio", Toast.LENGTH_SHORT).show()
                             }
                         ) {
@@ -234,7 +252,19 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = { showStremioLogin = true },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("open_stremio_login_wizard_button")
+                    ) {
+                        Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open Stremio Login Wizard (Email or AuthKey)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     OutlinedTextField(
                         value = loginEmail,
@@ -297,6 +327,7 @@ fun SettingsScreen(
                                             userId = result.user?._id
                                         )
                                         Toast.makeText(context, "Logged in to Stremio! Syncing addons...", Toast.LENGTH_SHORT).show()
+                                        isLinkedState = streamResolverRepository.isStreamSourceLinked()
                                         // Auto-sync addons
                                         addonRepository.syncAddonsFromStremioAccount(result.authKey)
                                     } else {
@@ -371,6 +402,7 @@ fun SettingsScreen(
                                             userId = null
                                         )
                                         Toast.makeText(context, "AuthKey saved! Syncing addons...", Toast.LENGTH_SHORT).show()
+                                        isLinkedState = streamResolverRepository.isStreamSourceLinked()
                                         addonRepository.syncAddonsFromStremioAccount(authKeyInput.trim())
                                     }
                                 }
@@ -391,15 +423,13 @@ fun SettingsScreen(
         // SECTION 2: Torrentio & Debrid Setup
         SettingsSectionHeader(title = "Torrentio & Debrid Scraper", icon = Icons.Default.Bolt)
 
-        val isSourceLinked = streamResolverRepository.isStreamSourceLinked()
-        var isLinkedState by remember { mutableStateOf(isSourceLinked) }
-
         Card(
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surface),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+                // Torrentio Status Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -438,19 +468,38 @@ fun SettingsScreen(
                         Button(
                             onClick = {
                                 scope.launch {
+                                    isValidatingTorrentio = true
+                                    torrentioErrorMessage = null
+                                    val customUrl = torrentioUrlInput.ifBlank { null }
+                                    if (customUrl != null) {
+                                        val valRes = streamResolverRepository.validateTorrentioUrl(customUrl)
+                                        if (valRes.isFailure) {
+                                            isValidatingTorrentio = false
+                                            torrentioErrorMessage = valRes.exceptionOrNull()?.message ?: "Invalid Torrentio URL"
+                                            return@launch
+                                        }
+                                    }
                                     streamResolverRepository.linkTorrentio(
-                                        customUrl = torrentioUrlInput.ifBlank { null },
+                                        customUrl = customUrl,
                                         debridKey = debridKeyInput.ifBlank { null }
                                     )
+                                    isValidatingTorrentio = false
                                     isLinkedState = streamResolverRepository.isStreamSourceLinked()
-                                    Toast.makeText(context, "Torrentio linked! Streams will now aggregate.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Torrentio linked! Real torrent streams active.", Toast.LENGTH_SHORT).show()
                                 }
                             },
+                            enabled = !isValidatingTorrentio,
                             colors = ButtonDefaults.buttonColors(containerColor = theme.primary, contentColor = Color.Black),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.testTag("link_torrentio_button")
                         ) {
-                            Text("Link Torrentio", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            if (isValidatingTorrentio) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.Black, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Checking...", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            } else {
+                                Text("Link Torrentio", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -464,14 +513,66 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Custom Torrentio URL
+                // Linked Debrid Account Status Card
+                if (linkedDebridInfo != null) {
+                    val acc = linkedDebridInfo!!
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF10B981).copy(alpha = 0.12f))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "${acc.service} Connected: ${acc.username}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = if (acc.isPremium) {
+                                            "Premium Active • ${if (acc.daysRemaining != null) "${acc.daysRemaining} days left" else "Unlimited"}"
+                                        } else "Free / Standard Account",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF10B981)
+                                    )
+                                }
+                            }
+
+                            TextButton(onClick = {
+                                streamResolverRepository.unlinkDebrid()
+                                linkedDebridInfo = null
+                                debridKeyInput = ""
+                                debridSuccessMessage = null
+                                Toast.makeText(context, "Debrid account disconnected", Toast.LENGTH_SHORT).show()
+                            }) {
+                                Text("Disconnect", fontSize = 11.sp, color = Color(0xFFEF4444))
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Custom Torrentio URL Field
                 OutlinedTextField(
                     value = torrentioUrlInput,
-                    onValueChange = { torrentioUrlInput = it },
+                    onValueChange = {
+                        torrentioUrlInput = it
+                        torrentioErrorMessage = null
+                    },
                     label = { Text("Custom Torrentio Manifest URL (Optional)") },
-                    placeholder = { Text("https://torrentio.strem.fun/providers=.../manifest.json") },
+                    placeholder = { Text("https://torrentio.strem.fun/manifest.json") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = theme.surfaceVariant,
@@ -482,12 +583,25 @@ fun SettingsScreen(
                         .testTag("torrentio_url_input")
                 )
 
+                if (torrentioErrorMessage != null) {
+                    Text(
+                        text = torrentioErrorMessage ?: "",
+                        fontSize = 11.sp,
+                        color = Color(0xFFEF4444),
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Real-Debrid API Token
+                // Real-Debrid API Token Field
                 OutlinedTextField(
                     value = debridKeyInput,
-                    onValueChange = { debridKeyInput = it },
+                    onValueChange = {
+                        debridKeyInput = it
+                        debridErrorMessage = null
+                        debridSuccessMessage = null
+                    },
                     label = { Text("Real-Debrid / TorBox API Key (Optional)") },
                     placeholder = { Text("Enter API key from real-debrid.com/apitoken") },
                     singleLine = true,
@@ -500,24 +614,155 @@ fun SettingsScreen(
                         .testTag("debrid_key_input")
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                // Debrid verification error message
+                if (debridErrorMessage != null) {
+                    Text(
+                        text = debridErrorMessage ?: "",
+                        fontSize = 11.sp,
+                        color = Color(0xFFEF4444),
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
+                }
 
+                // Debrid verification success message
+                if (debridSuccessMessage != null) {
+                    Text(
+                        text = debridSuccessMessage ?: "",
+                        fontSize = 11.sp,
+                        color = Color(0xFF10B981),
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Row with Token URL and Test Token Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://real-debrid.com/apitoken"))
+                                context.startActivity(intent)
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, tint = theme.primary, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Get key at real-debrid.com/apitoken", fontSize = 11.sp, color = theme.primary, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    TextButton(
+                        onClick = {
+                            if (debridKeyInput.isNotBlank()) {
+                                scope.launch {
+                                    isValidatingDebrid = true
+                                    debridErrorMessage = null
+                                    debridSuccessMessage = null
+                                    val res = streamResolverRepository.validateDebridKey("realdebrid", debridKeyInput.trim())
+                                    isValidatingDebrid = false
+                                    if (res.isSuccess) {
+                                        val info = res.getOrThrow()
+                                        linkedDebridInfo = info
+                                        debridSuccessMessage = "Verified! ${info.username} (${if (info.isPremium) "Premium active" else "Standard"})"
+                                        streamResolverRepository.linkTorrentio(
+                                            customUrl = torrentioUrlInput.ifBlank { null },
+                                            debridKey = debridKeyInput.trim(),
+                                            debridService = "realdebrid",
+                                            verifiedInfo = info
+                                        )
+                                        isLinkedState = streamResolverRepository.isStreamSourceLinked()
+                                    } else {
+                                        debridErrorMessage = res.exceptionOrNull()?.message ?: "Invalid key. Real-Debrid rejected this token."
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isValidatingDebrid && debridKeyInput.isNotBlank()
+                    ) {
+                        if (isValidatingDebrid) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = theme.primary, strokeWidth = 1.5.dp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Testing...", fontSize = 11.sp)
+                        } else {
+                            Text("Test & Verify Key", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.primary)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Save Configuration Button with Real Checking
                 Button(
                     onClick = {
                         scope.launch {
+                            isValidatingDebrid = true
+                            debridErrorMessage = null
+                            torrentioErrorMessage = null
+
+                            // 1. If Debrid key is entered, validate with real API
+                            var verifiedInfo = linkedDebridInfo
+                            if (debridKeyInput.isNotBlank()) {
+                                val debridRes = streamResolverRepository.validateDebridKey("realdebrid", debridKeyInput.trim())
+                                if (debridRes.isFailure) {
+                                    isValidatingDebrid = false
+                                    debridErrorMessage = debridRes.exceptionOrNull()?.message ?: "Invalid Real-Debrid API key"
+                                    return@launch
+                                }
+                                verifiedInfo = debridRes.getOrNull()
+                                linkedDebridInfo = verifiedInfo
+                            }
+
+                            // 2. If custom Torrentio URL is entered, validate manifest
+                            if (torrentioUrlInput.isNotBlank()) {
+                                val manifestRes = streamResolverRepository.validateTorrentioUrl(torrentioUrlInput.trim())
+                                if (manifestRes.isFailure) {
+                                    isValidatingDebrid = false
+                                    torrentioErrorMessage = manifestRes.exceptionOrNull()?.message ?: "Torrentio manifest unreachable"
+                                    return@launch
+                                }
+                            }
+
+                            // 3. Save validated configuration
                             streamResolverRepository.linkTorrentio(
                                 customUrl = torrentioUrlInput.ifBlank { null },
-                                debridKey = debridKeyInput.ifBlank { null }
+                                debridKey = debridKeyInput.ifBlank { null },
+                                debridService = "realdebrid",
+                                verifiedInfo = verifiedInfo
                             )
+                            isValidatingDebrid = false
                             isLinkedState = streamResolverRepository.isStreamSourceLinked()
-                            Toast.makeText(context, "Configuration saved and Torrentio linked!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Configuration verified & saved! Torrentio active.", Toast.LENGTH_SHORT).show()
                         }
                     },
+                    enabled = !isValidatingDebrid,
                     colors = ButtonDefaults.buttonColors(containerColor = theme.primary, contentColor = Color.Black),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Save & Link Configuration", fontWeight = FontWeight.Bold)
+                    if (isValidatingDebrid) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Verifying...", fontWeight = FontWeight.Bold)
+                    } else {
+                        Text("Verify & Save Configuration", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = { showTorrentioSetup = true },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("open_torrentio_wizard_button")
+                ) {
+                    Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Open Interactive Torrentio Wizard (Trackers, Quality, Debrid)", fontSize = 12.sp)
                 }
             }
         }
@@ -645,6 +890,33 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(60.dp))
+    }
+
+    if (showTorrentioSetup) {
+        TorrentioSetupDialog(
+            streamResolverRepository = streamResolverRepository,
+            initialCustomUrl = torrentioUrlInput,
+            initialDebridKey = debridKeyInput,
+            onDismiss = { showTorrentioSetup = false },
+            onSaved = {
+                showTorrentioSetup = false
+                torrentioUrlInput = prefs.getString("custom_torrentio_url", "") ?: ""
+                debridKeyInput = prefs.getString("debrid_key", "") ?: ""
+                isLinkedState = streamResolverRepository.isStreamSourceLinked()
+            }
+        )
+    }
+
+    if (showStremioLogin) {
+        StremioLoginDialog(
+            stremioSession = stremioSession,
+            apiClient = apiClient,
+            addonRepository = addonRepository,
+            onDismiss = { showStremioLogin = false },
+            onSuccess = {
+                showStremioLogin = false
+            }
+        )
     }
 }
 

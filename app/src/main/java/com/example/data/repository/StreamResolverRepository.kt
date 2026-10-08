@@ -1,10 +1,13 @@
 package com.example.data.repository
 
 import android.content.Context
+import com.example.data.api.DebridAccountInfo
+import com.example.data.api.DebridApiClient
 import com.example.data.api.StremioApiClient
 import com.example.data.local.AddonEntity
 import com.example.data.model.HarborParsedStream
 import com.example.data.model.HarborStreamParser
+import com.example.data.model.StremioManifest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -14,7 +17,8 @@ import kotlinx.coroutines.withContext
 class StreamResolverRepository(
     private val context: Context,
     private val addonRepository: AddonRepository,
-    private val apiClient: StremioApiClient
+    private val apiClient: StremioApiClient,
+    private val debridApiClient: DebridApiClient = DebridApiClient()
 ) {
 
     fun isStreamSourceLinked(): Boolean {
@@ -27,7 +31,47 @@ class StreamResolverRepository(
         return hasStremioLogin || hasCustomTorrentio || hasDebridKey || isTorrentioLinked
     }
 
-    suspend fun linkTorrentio(customUrl: String? = null, debridKey: String? = null) {
+    fun getLinkedDebridInfo(): DebridAccountInfo? {
+        val prefs = context.getSharedPreferences("harbor_prefs", Context.MODE_PRIVATE)
+        val key = prefs.getString("debrid_key", null)
+        if (key.isNullOrBlank()) return null
+        val service = prefs.getString("debrid_service", "Real-Debrid") ?: "Real-Debrid"
+        val username = prefs.getString("debrid_username", "Connected Account") ?: "Connected Account"
+        val email = prefs.getString("debrid_email", null)
+        val isPremium = prefs.getBoolean("debrid_is_premium", true)
+        val expiration = prefs.getString("debrid_expiration", null)
+        val days = prefs.getInt("debrid_days", -1).let { if (it >= 0) it else null }
+        return DebridAccountInfo(
+            service = service,
+            username = username,
+            email = email,
+            isPremium = isPremium,
+            expiration = expiration,
+            daysRemaining = days
+        )
+    }
+
+    suspend fun validateDebridKey(service: String, token: String): Result<DebridAccountInfo> {
+        return debridApiClient.validateKey(service, token)
+    }
+
+    suspend fun validateTorrentioUrl(url: String): Result<StremioManifest> {
+        return apiClient.validateTorrentioManifest(url)
+    }
+
+    suspend fun resolveMagnetViaDebrid(magnetUri: String): Result<String> {
+        val prefs = context.getSharedPreferences("harbor_prefs", Context.MODE_PRIVATE)
+        val key = prefs.getString("debrid_key", null)?.trim()
+            ?: return Result.failure(IllegalStateException("No Debrid API key configured"))
+        return debridApiClient.resolveMagnetViaRealDebrid(key, magnetUri)
+    }
+
+    suspend fun linkTorrentio(
+        customUrl: String? = null,
+        debridKey: String? = null,
+        debridService: String = "realdebrid",
+        verifiedInfo: DebridAccountInfo? = null
+    ) {
         val prefs = context.getSharedPreferences("harbor_prefs", Context.MODE_PRIVATE)
         val editor = prefs.edit().putBoolean("torrentio_linked", true)
         if (!customUrl.isNullOrBlank()) {
@@ -35,6 +79,14 @@ class StreamResolverRepository(
         }
         if (!debridKey.isNullOrBlank()) {
             editor.putString("debrid_key", debridKey.trim())
+            editor.putString("debrid_service", debridService)
+            if (verifiedInfo != null) {
+                editor.putString("debrid_username", verifiedInfo.username)
+                editor.putString("debrid_email", verifiedInfo.email)
+                editor.putBoolean("debrid_is_premium", verifiedInfo.isPremium)
+                editor.putString("debrid_expiration", verifiedInfo.expiration)
+                editor.putInt("debrid_days", verifiedInfo.daysRemaining ?: -1)
+            }
         }
         editor.apply()
 
@@ -60,6 +112,19 @@ class StreamResolverRepository(
             .apply()
         addonRepository.uninstallAddon("community.torrentio")
         addonRepository.uninstallAddon("custom.torrentio")
+    }
+
+    fun unlinkDebrid() {
+        val prefs = context.getSharedPreferences("harbor_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .remove("debrid_key")
+            .remove("debrid_service")
+            .remove("debrid_username")
+            .remove("debrid_email")
+            .remove("debrid_is_premium")
+            .remove("debrid_expiration")
+            .remove("debrid_days")
+            .apply()
     }
 
     suspend fun resolveStreams(
