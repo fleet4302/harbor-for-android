@@ -44,7 +44,8 @@ fun EpisodeCard(
     episode: StremioVideo,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
-    isSelected: Boolean = false
+    isSelected: Boolean = false,
+    onViewStreams: (() -> Unit)? = null
 ) {
     val theme = LocalHarborTheme.current
     val context = LocalContext.current
@@ -80,7 +81,7 @@ fun EpisodeCard(
                             .data(episode.thumbnail)
                             .crossfade(true)
                             .build(),
-                        contentDescription = episode.title,
+                        contentDescription = episode.computedTitle,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -109,23 +110,8 @@ fun EpisodeCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                val epNum = episode.episode ?: 1
-                val rawTitle = episode.title?.trim() ?: ""
-                val displayTitle = when {
-                    rawTitle.isBlank() -> "Episode $epNum"
-                    rawTitle.equals("Episode $epNum", ignoreCase = true) ||
-                            rawTitle.equals("episode $epNum", ignoreCase = true) ||
-                            rawTitle.equals("Ep $epNum", ignoreCase = true) ||
-                            rawTitle.equals("E$epNum", ignoreCase = true) ||
-                            rawTitle.equals("$epNum", ignoreCase = true) -> "Episode $epNum"
-                    rawTitle.startsWith("Episode $epNum - ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter("- ").trim()}"
-                    rawTitle.startsWith("Episode $epNum: ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter(": ").trim()}"
-                    rawTitle.startsWith("E$epNum - ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter("- ").trim()}"
-                    else -> "E$epNum • $rawTitle"
-                }
-
                 Text(
-                    text = displayTitle,
+                    text = episode.computedTitle,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
                     ),
@@ -157,19 +143,21 @@ fun EpisodeCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Action play pill
+            // Action play / stream pill
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(if (isSelected) theme.primary else theme.primary.copy(alpha = 0.15f))
-                    .clickable { onSelect() }
+                    .clickable {
+                        if (onViewStreams != null) onViewStreams.invoke() else onSelect()
+                    }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Watch Episode",
+                        contentDescription = "Streams",
                         tint = if (isSelected) Color.Black else theme.primary,
                         modifier = Modifier.size(14.dp)
                     )

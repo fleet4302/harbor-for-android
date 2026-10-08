@@ -85,13 +85,32 @@ data class StremioMetaDetail(
 data class StremioVideo(
     val id: String,
     val title: String? = null,
+    val name: String? = null,
     val season: Int? = null,
     val episode: Int? = null,
     val released: String? = null,
     val thumbnail: String? = null,
     val overview: String? = null,
     val stream: StremioStreamItem? = null
-)
+) {
+    val computedTitle: String
+        get() {
+            val raw = (title?.ifBlank { null } ?: name?.ifBlank { null })?.trim() ?: ""
+            val epNum = episode ?: 1
+            if (raw.isBlank()) return "Episode $epNum"
+            if (raw.equals("Episode $epNum", ignoreCase = true) ||
+                raw.equals("episode $epNum", ignoreCase = true) ||
+                raw.equals("Ep $epNum", ignoreCase = true) ||
+                raw.equals("E$epNum", ignoreCase = true) ||
+                raw.equals("$epNum", ignoreCase = true)) {
+                return "Episode $epNum"
+            }
+            if (raw.startsWith("Episode $epNum - ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter("- ").trim()}"
+            if (raw.startsWith("Episode $epNum: ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter(": ").trim()}"
+            if (raw.startsWith("E$epNum - ", ignoreCase = true)) return "E$epNum • ${raw.substringAfter("- ").trim()}"
+            return "E$epNum • $raw"
+        }
+}
 
 @JsonClass(generateAdapter = true)
 data class StremioStreamResponse(

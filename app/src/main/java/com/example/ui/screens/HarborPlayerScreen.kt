@@ -968,7 +968,7 @@ fun HarborPlayerScreen(
                                                             val url = topStream.rawStream.url ?: if (!topStream.rawStream.infoHash.isNullOrBlank()) {
                                                                 "magnet:?xt=urn:btih:${topStream.rawStream.infoHash}"
                                                             } else ""
-                                                            val newTitle = "${seriesDetail?.name ?: title} - S${ep.season}:E${ep.episode}"
+                                                            val newTitle = "${seriesDetail?.name ?: title} - ${ep.computedTitle}"
                                                             showEpisodeDrawer = false
                                                             onSwitchStream(
                                                                 newTitle,
@@ -976,7 +976,7 @@ fun HarborPlayerScreen(
                                                                 mediaId,
                                                                 ep.season,
                                                                 ep.episode,
-                                                                ep.title,
+                                                                ep.computedTitle,
                                                                 poster,
                                                                 background
                                                             )
@@ -1006,7 +1006,7 @@ fun HarborPlayerScreen(
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = ep.title ?: "Episode ${ep.episode}",
+                                                    text = ep.computedTitle,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color.White,

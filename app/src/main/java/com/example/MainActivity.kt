@@ -190,6 +190,12 @@ fun HarborApp() {
                                             streamUrl = url,
                                             mediaId = "direct_play"
                                         )
+                                    },
+                                    onOpenSearch = {
+                                        currentNavTab = HarborNavTab.SEARCH
+                                    },
+                                    onOpenSettings = {
+                                        currentNavTab = HarborNavTab.SETTINGS
                                     }
                                 )
                             }

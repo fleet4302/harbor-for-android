@@ -715,7 +715,12 @@ fun MediaDetailScreen(
                             episode = ep,
                             isSelected = isSelected,
                             onSelect = {
-                                Log.d("MediaDetailScreen", "Episode clicked: ${ep.id} - Opening stream sheet")
+                                Log.d("MediaDetailScreen", "Episode clicked: ${ep.id} - Auto-playing episode")
+                                selectedEpisode = ep
+                                autoPlayBestStream(item)
+                            },
+                            onViewStreams = {
+                                Log.d("MediaDetailScreen", "Episode Streams clicked: ${ep.id} - Opening stream sheet")
                                 selectedEpisode = ep
                                 showEpisodeStreamSheet = true
                                 refreshStreams(item)
@@ -1176,57 +1181,6 @@ fun MediaDetailScreen(
                     }
                 }
             )
-        }
-
-        // Sticky floating episode stream bar when an episode is selected
-        if (item.type == "series" && selectedEpisode != null) {
-            val ep = selectedEpisode!!
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = theme.surface.copy(alpha = 0.96f),
-                border = BorderStroke(1.dp, theme.primary.copy(alpha = 0.5f)),
-                shadowElevation = 12.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "S${ep.season}:E${ep.episode} • ${ep.title ?: "Episode"}",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (isLoadingStreams) "Scanning torrents..." else "${filteredStreams.size} Love streams ready",
-                            fontSize = 11.sp,
-                            color = if (isLoadingStreams) theme.primary else Color(0xFF94A3B8)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Button(
-                        onClick = { showEpisodeStreamSheet = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = theme.primary,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Streams", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-            }
         }
 
         // Dedicated Cinema Dialog for Episode Streams
