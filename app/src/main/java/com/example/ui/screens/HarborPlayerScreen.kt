@@ -94,6 +94,9 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import android.widget.Toast
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -164,17 +167,28 @@ fun HarborPlayerScreen(
 
     // ExoPlayer initialization
     val exoPlayer = remember {
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
+
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Love-Android/1.0.0 (Linux; Android)")
+            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(30000)
+            .setConnectTimeoutMs(20000)
+            .setReadTimeoutMs(40000)
 
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(httpDataSourceFactory)
 
-        ExoPlayer.Builder(context)
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(15000, 50000, 2000, 5000)
+            .build()
+
+        ExoPlayer.Builder(context, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
+            .setSeekForwardIncrementMs(10000)
+            .setSeekBackIncrementMs(10000)
             .build().apply {
                 playWhenReady = true
                 val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
@@ -217,7 +231,34 @@ fun HarborPlayerScreen(
 
             override fun onPlayerError(error: PlaybackException) {
                 isBuffering = false
-                val reason = error.localizedMessage ?: "Playback error: ${error.errorCodeName}"
+                val errorMsg = error.localizedMessage ?: error.errorCodeName
+                val isAudioCodecError = error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
+                        error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED ||
+                        errorMsg.contains("AUDIO", ignoreCase = true) ||
+                        errorMsg.contains("AudioTrack", ignoreCase = true)
+
+                if (isAudioCodecError) {
+                    try {
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                            .build()
+                        exoPlayer.prepare()
+                        exoPlayer.play()
+                        Toast.makeText(context, "Recovered playback via standard audio output", Toast.LENGTH_SHORT).show()
+                        return
+                    } catch (e: Exception) {
+                        // Fallthrough to error display
+                    }
+                }
+
+                val reason = when (error.errorCode) {
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Network connection interrupted. Check internet or Debrid link."
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Stream link expired or access rejected by host."
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "Codec unsupported on hardware. Using software decoder fallback."
+                    PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED -> "Audio format unsupported. Switched to standard audio."
+                    else -> "Playback error: $errorMsg"
+                }
                 playerError = reason
             }
         }

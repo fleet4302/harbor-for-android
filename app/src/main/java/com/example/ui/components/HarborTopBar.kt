@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -33,8 +33,8 @@ import com.example.ui.theme.LocalHarborTheme
 
 @Composable
 fun HarborTopBar(
-    title: String = "LOVE",
-    showLogo: Boolean = true,
+    title: String = "",
+    showLogo: Boolean = false,
     onSearchClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null
 ) {
@@ -50,35 +50,34 @@ fun HarborTopBar(
         if (showLogo) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(theme.primary, Color(0xFFFF5277))
-                        )
-                    ),
+                    .background(theme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                // White Heart Logo
                 Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = "Love Heart Logo",
-                    tint = Color.White,
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = theme.primary,
                     modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(10.dp))
         }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp
-            ),
-            color = Color.White,
-            modifier = Modifier.weight(1f)
-        )
+        if (title.isNotBlank()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                ),
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
 
         // Live Addon Engine indicator
         Box(

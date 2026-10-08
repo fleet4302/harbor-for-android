@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HarborApp() {
     val context = LocalContext.current
-    var currentThemeStyle by remember { mutableStateOf(HarborThemeStyle.LOVE_ROSE) }
+    var currentThemeStyle by remember { mutableStateOf(HarborThemeStyle.DEEP_HARBOR) }
     var currentNavTab by remember { mutableStateOf(HarborNavTab.DISCOVER) }
     var currentScreen by remember { mutableStateOf<HarborScreen>(HarborScreen.Main) }
 
@@ -158,7 +158,7 @@ fun HarborApp() {
                     topBar = {
                         if (currentNavTab != HarborNavTab.SEARCH) {
                             HarborTopBar(
-                                title = "LOVE",
+                                title = "",
                                 onSearchClick = { currentNavTab = HarborNavTab.SEARCH },
                                 onSettingsClick = { currentNavTab = HarborNavTab.SETTINGS }
                             )

@@ -1,5 +1,5 @@
 {
-  "name": "Love",
+  "name": "Goobies",
   "description": "Next-generation streaming app with multi-addon discovery, Torrentio integration, and Real-Debrid playback.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

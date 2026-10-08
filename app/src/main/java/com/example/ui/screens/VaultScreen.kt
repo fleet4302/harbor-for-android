@@ -105,7 +105,7 @@ fun VaultScreen(
         ) {
             Column {
                 Text(
-                    text = "LOVE VAULT",
+                    text = "VAULT",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
