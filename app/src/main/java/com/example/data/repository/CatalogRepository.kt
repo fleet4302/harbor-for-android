@@ -12,10 +12,13 @@ class CatalogRepository(
     private val apiClient: StremioApiClient
 ) {
 
-    suspend fun getPopularMovies(genre: String? = null): List<StremioMetaSummary> = withContext(Dispatchers.IO) {
+    suspend fun getPopularMovies(genre: String? = null, skip: Int = 0): List<StremioMetaSummary> = withContext(Dispatchers.IO) {
         val extra = mutableMapOf<String, String>()
         if (!genre.isNullOrBlank() && genre != "All") {
             extra["genre"] = genre
+        }
+        if (skip > 0) {
+            extra["skip"] = skip.toString()
         }
 
         val cinemetaUrl = "https://v3-cinemeta.strem.io"
@@ -27,10 +30,13 @@ class CatalogRepository(
         }
     }
 
-    suspend fun getPopularSeries(genre: String? = null): List<StremioMetaSummary> = withContext(Dispatchers.IO) {
+    suspend fun getPopularSeries(genre: String? = null, skip: Int = 0): List<StremioMetaSummary> = withContext(Dispatchers.IO) {
         val extra = mutableMapOf<String, String>()
         if (!genre.isNullOrBlank() && genre != "All") {
             extra["genre"] = genre
+        }
+        if (skip > 0) {
+            extra["skip"] = skip.toString()
         }
 
         val cinemetaUrl = "https://v3-cinemeta.strem.io"
@@ -39,6 +45,14 @@ class CatalogRepository(
             result.getOrThrow()
         } else {
             DefaultAddons.FALLBACK_CATALOG.filter { it.type == "series" }
+        }
+    }
+
+    suspend fun getCatalogPage(type: String, genre: String? = null, skip: Int = 0): List<StremioMetaSummary> = withContext(Dispatchers.IO) {
+        if (type == "movie") {
+            getPopularMovies(genre, skip)
+        } else {
+            getPopularSeries(genre, skip)
         }
     }
 

@@ -33,13 +33,13 @@ enum class HarborThemeStyle(
         accentGlow = Color(0xFFA855F7)
     ),
     DEEP_HARBOR(
-        title = "Ocean Wave",
-        subtitle = "Deep Midnight Navy & Neon Cyan",
-        background = Color(0xFF060D19),
-        surface = Color(0xFF0C182B),
-        surfaceVariant = Color(0xFF14243D),
+        title = "Harbor Dark",
+        subtitle = "Pure Black & Harbor Slate Cyan",
+        background = Color(0xFF000000),
+        surface = Color(0xFF10121A),
+        surfaceVariant = Color(0xFF1A1D28),
         primary = Color(0xFF00E5FF),
-        secondary = Color(0xFF3B82F6),
+        secondary = Color(0xFF38BDF8),
         accentGlow = Color(0xFF00E5FF)
     ),
     NAUTICAL_GOLD(

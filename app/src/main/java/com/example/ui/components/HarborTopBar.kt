@@ -1,6 +1,8 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,95 +46,63 @@ fun HarborTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (showLogo) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(theme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = theme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-        }
-
         if (title.isNotBlank()) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 ),
-                color = Color.White,
-                modifier = Modifier.weight(1f)
+                color = Color.White
             )
         } else {
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(1.dp))
         }
 
-        // Live Addon Engine indicator
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(theme.primary.copy(alpha = 0.15f))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            contentAlignment = Alignment.Center
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onSearchClick != null) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF10B981))
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "ONLINE",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = theme.primary
-                )
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .clickable { onSearchClick() }
+                        .testTag("top_bar_search_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.width(8.dp))
-
-        if (onSearchClick != null) {
-            IconButton(
-                onClick = onSearchClick,
-                modifier = Modifier
-                    .testTag("top_bar_search_button")
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.onBackground
-                )
-            }
-        }
-
-        if (onSettingsClick != null) {
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier
-                    .testTag("top_bar_settings_button")
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onBackground
-                )
+            if (onSettingsClick != null) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .clickable { onSettingsClick() }
+                        .testTag("top_bar_settings_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
         }
     }

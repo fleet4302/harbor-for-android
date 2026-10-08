@@ -109,9 +109,23 @@ fun EpisodeCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                val epNumber = if (episode.episode != null) "E${episode.episode} • " else ""
+                val epNum = episode.episode ?: 1
+                val rawTitle = episode.title?.trim() ?: ""
+                val displayTitle = when {
+                    rawTitle.isBlank() -> "Episode $epNum"
+                    rawTitle.equals("Episode $epNum", ignoreCase = true) ||
+                            rawTitle.equals("episode $epNum", ignoreCase = true) ||
+                            rawTitle.equals("Ep $epNum", ignoreCase = true) ||
+                            rawTitle.equals("E$epNum", ignoreCase = true) ||
+                            rawTitle.equals("$epNum", ignoreCase = true) -> "Episode $epNum"
+                    rawTitle.startsWith("Episode $epNum - ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter("- ").trim()}"
+                    rawTitle.startsWith("Episode $epNum: ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter(": ").trim()}"
+                    rawTitle.startsWith("E$epNum - ", ignoreCase = true) -> "E$epNum • ${rawTitle.substringAfter("- ").trim()}"
+                    else -> "E$epNum • $rawTitle"
+                }
+
                 Text(
-                    text = "$epNumber${episode.title ?: "Episode"}",
+                    text = displayTitle,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
                     ),
