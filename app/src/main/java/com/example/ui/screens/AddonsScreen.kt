@@ -136,7 +136,7 @@ fun AddonsScreen(
                 val addonCount = addonRes.getOrNull() ?: 0
                 Toast.makeText(
                     context,
-                    "Synced $addonCount addons & $libCount library titles to Love Vault!",
+                    "Synced $addonCount addons & $libCount library titles to Vault!",
                     Toast.LENGTH_LONG
                 ).show()
             } catch (e: Exception) {

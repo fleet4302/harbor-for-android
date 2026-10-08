@@ -176,7 +176,7 @@ fun BackgroundContextMenuDialog(
                     color = Color.White
                 )
                 Text(
-                    text = "Love Client Context Options",
+                    text = "Quick Context Options",
                     fontSize = 11.sp,
                     color = theme.primary
                 )

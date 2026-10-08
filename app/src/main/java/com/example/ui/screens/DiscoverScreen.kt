@@ -193,18 +193,17 @@ fun DiscoverScreen(
             }
             .testTag("discover_screen")
     ) {
-        // TOP FLOATING HEADER BAR: Continue Watching, TV Shows, Movies | Search Bubble, Settings Bubble
+        // TOP FLOATING HEADER BAR: Continue Watching, TV Shows, Movies
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             // Pills Group
             Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -233,48 +232,6 @@ fun DiscoverScreen(
                         multiSelectedCategories = emptySet()
                     }
                 )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Search Bubble & Settings Bubble
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Search Bubble
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.surfaceVariant)
-                        .clickable { onOpenSearch() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                // Settings Bubble
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.surfaceVariant)
-                        .clickable { onOpenSettings() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
         }
 

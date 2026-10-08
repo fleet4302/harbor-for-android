@@ -12,15 +12,25 @@ enum class HarborThemeStyle(
     val secondary: Color,
     val accentGlow: Color
 ) {
-    LOVE_ROSE(
-        title = "Love Velvet",
-        subtitle = "Signature Obsidian & Radiant Heart Rose",
-        background = Color(0xFF090A0F),
-        surface = Color(0xFF12131C),
-        surfaceVariant = Color(0xFF1D1F2D),
-        primary = Color(0xFFFF2D55),
-        secondary = Color(0xFFFB7185),
-        accentGlow = Color(0xFFFF3366)
+    BLACK_PASTEL_WHITE(
+        title = "Black & Pastel White",
+        subtitle = "Pure Pitch Black & Soft Pastel White Accent",
+        background = Color(0xFF000000),
+        surface = Color(0xFF0E0E10),
+        surfaceVariant = Color(0xFF1A1A1E),
+        primary = Color(0xFFF3F4F6),
+        secondary = Color(0xFFE5E7EB),
+        accentGlow = Color(0xFFFAFAFA)
+    ),
+    BLACK_PASTEL_GREY(
+        title = "Black & Light Pastel Grey",
+        subtitle = "Pure Pitch Black & Light Pastel Grey Accent",
+        background = Color(0xFF000000),
+        surface = Color(0xFF0E0E10),
+        surfaceVariant = Color(0xFF18181B),
+        primary = Color(0xFFD1D5DB),
+        secondary = Color(0xFF9CA3AF),
+        accentGlow = Color(0xFFE2E8F0)
     ),
     ABYSS(
         title = "Obsidian Glow",
@@ -51,5 +61,15 @@ enum class HarborThemeStyle(
         primary = Color(0xFFF59E0B),
         secondary = Color(0xFFFB923C),
         accentGlow = Color(0xFFF59E0B)
+    ),
+    CRIMSON_NEON(
+        title = "Crimson Velvet",
+        subtitle = "Pure Pitch Black & Radiant Crimson",
+        background = Color(0xFF000000),
+        surface = Color(0xFF0F0E11),
+        surfaceVariant = Color(0xFF1B1820),
+        primary = Color(0xFFFF2D55),
+        secondary = Color(0xFFFB7185),
+        accentGlow = Color(0xFFFF3366)
     )
 }

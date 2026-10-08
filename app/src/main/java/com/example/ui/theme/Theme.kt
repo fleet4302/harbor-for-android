@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -9,11 +8,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.example.data.model.HarborThemeStyle
 
-val LocalHarborTheme = staticCompositionLocalOf { HarborThemeStyle.LOVE_ROSE }
+val LocalHarborTheme = staticCompositionLocalOf { HarborThemeStyle.BLACK_PASTEL_WHITE }
 
 @Composable
 fun HarborTheme(
-    themeStyle: HarborThemeStyle = HarborThemeStyle.LOVE_ROSE,
+    themeStyle: HarborThemeStyle = HarborThemeStyle.BLACK_PASTEL_WHITE,
     content: @Composable () -> Unit
 ) {
     val colorScheme = darkColorScheme(

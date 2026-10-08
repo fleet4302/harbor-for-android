@@ -730,7 +730,7 @@ fun MediaDetailScreen(
                 }
             }
 
-            // Love Streams Section
+            // Streams Section
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -742,7 +742,7 @@ fun MediaDetailScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Love Streams",
+                                    text = "Available Streams",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -843,7 +843,7 @@ fun MediaDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Love displays zero fake streams. Configure Torrentio or connect your Stremio cloud account to aggregate real torrents and Debrid streams across major trackers.",
+                                    text = "Zero fake streams displayed. Configure Torrentio or connect your Stremio cloud account to aggregate real torrents and Debrid streams across major trackers.",
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center,
                                     lineHeight = 16.sp,
@@ -1068,7 +1068,7 @@ fun MediaDetailScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Love's built-in native player requires Real-Debrid or TorBox to convert P2P torrents into direct high-speed HTTP streams without buffering.",
+                            text = "The built-in native player requires Real-Debrid or TorBox to convert P2P torrents into direct high-speed HTTP streams without buffering.",
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
                             color = Color.White

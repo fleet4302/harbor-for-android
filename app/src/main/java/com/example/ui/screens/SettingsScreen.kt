@@ -882,8 +882,8 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // SECTION 3: Love Theme Studio
-        SettingsSectionHeader(title = "Love Theme Studio", icon = Icons.Default.Palette)
+        // SECTION 3: Theme Studio
+        SettingsSectionHeader(title = "Theme Studio", icon = Icons.Default.Palette)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HarborThemeStyle.entries.forEach { style ->
@@ -985,16 +985,16 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // About Love Client
+        // About
         Card(
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surface),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Love for Android", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text(text = "Features & Protocol Support", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(
-                    text = "Stream anything with love. Features full Stremio v3 Addon protocol support, real Torrentio stream aggregation, Stremio Cloud login, and hardware-accelerated Media3 video playback.",
+                    text = "Features full Stremio v3 Addon protocol support, real Torrentio stream aggregation, Stremio Cloud login, and hardware-accelerated Media3 video playback.",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 4.dp)

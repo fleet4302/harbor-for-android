@@ -110,9 +110,9 @@ object HarborStreamParser {
 
         // Display labels
         val displayTitle = if (name.isNotBlank()) {
-            name.lines().firstOrNull()?.trim() ?: "Love Stream"
+            name.lines().firstOrNull()?.trim() ?: "Stream"
         } else {
-            "Love Stream ($resBadge)"
+            "Stream ($resBadge)"
         }
 
         val displaySubtitle = if (title.isNotBlank()) {

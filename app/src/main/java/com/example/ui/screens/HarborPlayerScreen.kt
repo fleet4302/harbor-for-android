@@ -572,62 +572,64 @@ fun HarborPlayerScreen(
                     }
                 }
 
-                // Center Play/Pause & Seek Controls
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            val newPos = (exoPlayer.currentPosition - 10000).coerceAtLeast(0)
-                            exoPlayer.seekTo(newPos)
-                        },
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                            .testTag("player_replay_10")
+                // Center Play/Pause & Seek Controls (Hidden while buffering)
+                if (!isBuffering) {
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalArrangement = Arrangement.spacedBy(28.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(imageVector = Icons.Default.Replay10, contentDescription = "Rewind 10s", tint = Color.White, modifier = Modifier.size(28.dp))
-                    }
+                        IconButton(
+                            onClick = {
+                                val newPos = (exoPlayer.currentPosition - 10000).coerceAtLeast(0)
+                                exoPlayer.seekTo(newPos)
+                            },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                                .testTag("player_replay_10")
+                        ) {
+                            Icon(imageVector = Icons.Default.Replay10, contentDescription = "Rewind 10s", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
 
-                    IconButton(
-                        onClick = {
-                            if (exoPlayer.isPlaying) {
-                                exoPlayer.pause()
-                            } else {
-                                exoPlayer.play()
-                            }
-                        },
-                        modifier = Modifier
-                            .size(68.dp)
-                            .clip(CircleShape)
-                            .background(theme.primary)
-                            .testTag("player_play_pause")
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Toggle Playback",
-                            tint = Color.Black,
-                            modifier = Modifier.size(38.dp)
-                        )
-                    }
+                        IconButton(
+                            onClick = {
+                                if (exoPlayer.isPlaying) {
+                                    exoPlayer.pause()
+                                } else {
+                                    exoPlayer.play()
+                                }
+                            },
+                            modifier = Modifier
+                                .size(68.dp)
+                                .clip(CircleShape)
+                                .background(theme.primary)
+                                .testTag("player_play_pause")
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = "Toggle Playback",
+                                tint = Color.Black,
+                                modifier = Modifier.size(38.dp)
+                            )
+                        }
 
-                    IconButton(
-                        onClick = {
-                            val newPos = (exoPlayer.currentPosition + 10000).coerceAtMost(durationMs)
-                            exoPlayer.seekTo(newPos)
-                        },
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                            .testTag("player_forward_10")
-                    ) {
-                        Icon(imageVector = Icons.Default.Forward10, contentDescription = "Forward 10s", tint = Color.White, modifier = Modifier.size(28.dp))
+                        IconButton(
+                            onClick = {
+                                val newPos = (exoPlayer.currentPosition + 10000).coerceAtMost(durationMs)
+                                exoPlayer.seekTo(newPos)
+                            },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                                .testTag("player_forward_10")
+                        ) {
+                            Icon(imageVector = Icons.Default.Forward10, contentDescription = "Forward 10s", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
                     }
                 }
 
