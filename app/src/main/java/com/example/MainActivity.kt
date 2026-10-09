@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,6 +93,21 @@ fun HarborApp() {
     val catalogRepository = remember { CatalogRepository(addonRepository, apiClient) }
     val streamResolver = remember { StreamResolverRepository(context, addonRepository, apiClient) }
     val vaultRepository = remember { VaultRepository(database.watchHistoryDao(), database.watchlistDao()) }
+
+    // Auto-sync Stremio watch library on launch if logged in
+    LaunchedEffect(Unit) {
+        val authKey = stremioSession.getAuthKey()
+        if (!authKey.isNullOrBlank()) {
+            try {
+                val libRes = apiClient.getLibraryItems(authKey)
+                if (libRes.isSuccess) {
+                    vaultRepository.syncLibraryFromStremio(libRes.getOrThrow())
+                }
+            } catch (e: Exception) {
+                // Background sync ignore error
+            }
+        }
+    }
 
     HarborTheme(themeStyle = currentThemeStyle) {
         when (val screen = currentScreen) {

@@ -355,9 +355,43 @@ class StremioApiClient {
      */
     suspend fun getLibraryItems(authKey: String): Result<List<com.example.data.model.StremioLibraryEntry>> = withContext(Dispatchers.IO) {
         try {
-            val collectionsToFetch = listOf("libraryItem", "watchState", "watched")
             val resultMap = mutableMapOf<String, com.example.data.model.StremioLibraryEntry>()
 
+            // 1. Fetch primary Stremio library items via libraryGet API
+            try {
+                val jsonBody = org.json.JSONObject().apply {
+                    put("authKey", authKey.trim())
+                    put("type", "libraryGet")
+                }.toString()
+                val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+                val request = Request.Builder()
+                    .url("https://api.strem.io/api/libraryGet")
+                    .post(requestBody)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    val body = response.body?.string() ?: ""
+                    if (body.isNotBlank()) {
+                        val json = org.json.JSONObject(body)
+                        val rawItemsList = mutableListOf<org.json.JSONObject>()
+                        if (json.has("result") && !json.isNull("result")) {
+                            val resVal = json.opt("result")
+                            if (resVal is org.json.JSONArray) {
+                                for (i in 0 until resVal.length()) {
+                                    val obj = resVal.optJSONObject(i)
+                                    if (obj != null) rawItemsList.add(obj)
+                                }
+                            }
+                        }
+                        parseAndMergeRawLibraryItems(rawItemsList, resultMap)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("StremioApiClient", "libraryGet request failed: ${e.message}")
+            }
+
+            // 2. Fetch Datastore collections (libraryItem, watchState, watched)
+            val collectionsToFetch = listOf("libraryItem", "watchState", "watched")
             for (col in collectionsToFetch) {
                 try {
                     val jsonBody = org.json.JSONObject().apply {
@@ -372,111 +406,40 @@ class StremioApiClient {
 
                     client.newCall(request).execute().use { response ->
                         val body = response.body?.string() ?: ""
-                        if (body.isBlank()) return@use
+                        if (body.isNotBlank()) {
+                            val json = org.json.JSONObject(body)
+                            val rawItemsList = mutableListOf<org.json.JSONObject>()
 
-                        val json = try {
-                            org.json.JSONObject(body)
-                        } catch (e: Exception) {
-                            return@use
-                        }
-
-                        val rawItemsList = mutableListOf<org.json.JSONObject>()
-
-                        if (json.has("result") && !json.isNull("result")) {
-                            val resVal = json.opt("result")
-                            if (resVal is org.json.JSONArray) {
-                                for (i in 0 until resVal.length()) {
-                                    val obj = resVal.optJSONObject(i)
-                                    if (obj != null) rawItemsList.add(obj)
-                                }
-                            } else if (resVal is org.json.JSONObject) {
-                                if (resVal.has("items") && resVal.optJSONArray("items") != null) {
-                                    val arr = resVal.optJSONArray("items")!!
-                                    for (i in 0 until arr.length()) {
-                                        val obj = arr.optJSONObject(i)
+                            if (json.has("result") && !json.isNull("result")) {
+                                val resVal = json.opt("result")
+                                if (resVal is org.json.JSONArray) {
+                                    for (i in 0 until resVal.length()) {
+                                        val obj = resVal.optJSONObject(i)
                                         if (obj != null) rawItemsList.add(obj)
                                     }
-                                } else {
-                                    val keys = resVal.keys()
-                                    while (keys.hasNext()) {
-                                        val k = keys.next()
-                                        val obj = resVal.optJSONObject(k)
-                                        if (obj != null) {
-                                            if (!obj.has("_id") && !obj.has("id")) {
-                                                obj.put("_id", k)
+                                } else if (resVal is org.json.JSONObject) {
+                                    if (resVal.has("items") && resVal.optJSONArray("items") != null) {
+                                        val arr = resVal.optJSONArray("items")!!
+                                        for (i in 0 until arr.length()) {
+                                            val obj = arr.optJSONObject(i)
+                                            if (obj != null) rawItemsList.add(obj)
+                                        }
+                                    } else {
+                                        val keys = resVal.keys()
+                                        while (keys.hasNext()) {
+                                            val k = keys.next()
+                                            val obj = resVal.optJSONObject(k)
+                                            if (obj != null) {
+                                                if (!obj.has("_id") && !obj.has("id")) {
+                                                    obj.put("_id", k)
+                                                }
+                                                rawItemsList.add(obj)
                                             }
-                                            rawItemsList.add(obj)
                                         }
                                     }
                                 }
                             }
-                        }
-
-                        for (itemObj in rawItemsList) {
-                            val rawId = itemObj.optString("_id", itemObj.optString("id", itemObj.optString("key", "")))
-                            if (rawId.isBlank()) continue
-
-                            val baseId = if (rawId.startsWith("tt") && rawId.contains(":")) rawId.substringBefore(":") else rawId
-                            val name = itemObj.optString("name", itemObj.optString("title", "Untitled"))
-                            val type = itemObj.optString("type", if (rawId.contains(":")) "series" else "movie")
-                            var poster = if (itemObj.has("poster")) itemObj.optString("poster") else null
-                            val background = if (itemObj.has("background")) itemObj.optString("background") else null
-
-                            if (poster.isNullOrBlank() && baseId.startsWith("tt")) {
-                                poster = "https://images.metahub.space/poster/medium/$baseId/img"
-                            }
-
-                            var season: Int? = null
-                            var episode: Int? = null
-                            var posMs = 0L
-                            var durMs = 0L
-                            var lastWatched = System.currentTimeMillis()
-
-                            if (itemObj.has("mtime")) {
-                                val mtime = itemObj.optLong("mtime", 0L)
-                                if (mtime > 0) lastWatched = mtime
-                            }
-
-                            val stateObj = itemObj.optJSONObject("state") ?: itemObj.optJSONObject("value")
-                            if (stateObj != null) {
-                                val rawPos = stateObj.optLong("timeOffset", stateObj.optLong("time", stateObj.optLong("position", 0L)))
-                                val rawDur = stateObj.optLong("duration", 0L)
-                                posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
-                                durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
-
-                                val videoId = stateObj.optString("video_id", stateObj.optString("videoId", stateObj.optString("video", "")))
-                                if (videoId.contains(":")) {
-                                    val parts = videoId.split(":")
-                                    if (parts.size >= 3) {
-                                        season = parts[1].toIntOrNull()
-                                        episode = parts[2].toIntOrNull()
-                                    }
-                                }
-                                if (season == null && stateObj.has("season")) {
-                                    season = stateObj.optInt("season")
-                                }
-                                if (episode == null && stateObj.has("episode")) {
-                                    episode = stateObj.optInt("episode")
-                                }
-                            }
-
-                            val entryKey = if (season != null && episode != null) "$baseId:$season:$episode" else baseId
-                            val existing = resultMap[entryKey]
-                            val mergedPos = if (posMs > 0) posMs else (existing?.positionMs ?: 0L)
-                            val mergedDur = if (durMs > 0) durMs else (existing?.durationMs ?: 0L)
-
-                            resultMap[entryKey] = com.example.data.model.StremioLibraryEntry(
-                                id = baseId,
-                                name = if (name != "Untitled") name else (existing?.name ?: "Untitled"),
-                                type = type,
-                                poster = poster ?: existing?.poster,
-                                background = background ?: existing?.background,
-                                season = season ?: existing?.season,
-                                episode = episode ?: existing?.episode,
-                                positionMs = mergedPos,
-                                durationMs = mergedDur,
-                                lastWatchedTimestamp = lastWatched
-                            )
+                            parseAndMergeRawLibraryItems(rawItemsList, resultMap)
                         }
                     }
                 } catch (e: Exception) {
@@ -488,6 +451,99 @@ class StremioApiClient {
         } catch (e: Exception) {
             Log.e("StremioApiClient", "Error fetching library items: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    private fun parseAndMergeRawLibraryItems(
+        rawItemsList: List<org.json.JSONObject>,
+        resultMap: MutableMap<String, com.example.data.model.StremioLibraryEntry>
+    ) {
+        for (itemObj in rawItemsList) {
+            val rawId = itemObj.optString("_id", itemObj.optString("id", itemObj.optString("key", "")))
+            if (rawId.isBlank()) continue
+
+            val baseId = if (rawId.startsWith("tt") && rawId.contains(":")) rawId.substringBefore(":") else rawId
+            val name = itemObj.optString("name", itemObj.optString("title", "Untitled"))
+            val type = itemObj.optString("type", if (rawId.contains(":")) "series" else "movie")
+            var poster = if (itemObj.has("poster")) itemObj.optString("poster") else null
+            val background = if (itemObj.has("background")) itemObj.optString("background") else null
+
+            if (poster.isNullOrBlank() && baseId.startsWith("tt")) {
+                poster = "https://images.metahub.space/poster/medium/$baseId/img"
+            }
+
+            var season: Int? = null
+            var episode: Int? = null
+            var posMs = 0L
+            var durMs = 0L
+            var lastWatched = System.currentTimeMillis()
+
+            if (itemObj.has("mtime")) {
+                val rawM = itemObj.opt("mtime")
+                if (rawM is Number) {
+                    val m = rawM.toLong()
+                    if (m > 0) lastWatched = m
+                } else if (rawM is String) {
+                    try {
+                        lastWatched = java.time.Instant.parse(rawM).toEpochMilli()
+                    } catch (e: Exception) {
+                        rawM.toLongOrNull()?.let { if (it > 0) lastWatched = it }
+                    }
+                }
+            }
+
+            val stateObj = itemObj.optJSONObject("state") ?: itemObj.optJSONObject("value") ?: itemObj
+            if (stateObj != null) {
+                val rawPos = when (val p = stateObj.opt("timeOffset") ?: stateObj.opt("time") ?: stateObj.opt("position")) {
+                    is Number -> p.toLong()
+                    is String -> p.toLongOrNull() ?: 0L
+                    else -> 0L
+                }
+                val rawDur = when (val d = stateObj.opt("duration")) {
+                    is Number -> d.toLong()
+                    is String -> d.toLongOrNull() ?: 0L
+                    else -> 0L
+                }
+
+                posMs = if (rawPos in 1..99999) rawPos * 1000L else rawPos
+                durMs = if (rawDur in 1..99999) rawDur * 1000L else if (rawDur == 0L && posMs > 0) 3600000L else rawDur
+
+                val videoId = when (val v = stateObj.opt("video_id") ?: stateObj.opt("videoId") ?: stateObj.opt("video")) {
+                    is String -> v
+                    else -> ""
+                }
+                if (videoId.contains(":")) {
+                    val parts = videoId.split(":")
+                    if (parts.size >= 3) {
+                        season = parts[1].toIntOrNull()
+                        episode = parts[2].toIntOrNull()
+                    }
+                }
+                if (season == null && stateObj.has("season")) {
+                    season = stateObj.optInt("season")
+                }
+                if (episode == null && stateObj.has("episode")) {
+                    episode = stateObj.optInt("episode")
+                }
+            }
+
+            val entryKey = if (season != null && episode != null) "$baseId:$season:$episode" else baseId
+            val existing = resultMap[entryKey]
+            val mergedPos = if (posMs > 0) posMs else (existing?.positionMs ?: 0L)
+            val mergedDur = if (durMs > 0) durMs else (existing?.durationMs ?: 0L)
+
+            resultMap[entryKey] = com.example.data.model.StremioLibraryEntry(
+                id = baseId,
+                name = if (name != "Untitled") name else (existing?.name ?: "Untitled"),
+                type = type,
+                poster = poster ?: existing?.poster,
+                background = background ?: existing?.background,
+                season = season ?: existing?.season,
+                episode = episode ?: existing?.episode,
+                positionMs = mergedPos,
+                durationMs = mergedDur,
+                lastWatchedTimestamp = lastWatched
+            )
         }
     }
 
