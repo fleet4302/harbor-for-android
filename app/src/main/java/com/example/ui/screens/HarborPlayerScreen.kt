@@ -269,11 +269,46 @@ fun HarborPlayerScreen(
         }
     }
 
+    fun formatTime(ms: Long): String {
+        val totalSecs = (ms / 1000).coerceAtLeast(0)
+        val hours = totalSecs / 3600
+        val mins = (totalSecs % 3600) / 60
+        val secs = totalSecs % 60
+        return if (hours > 0) {
+            String.format(Locale.ROOT, "%d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.ROOT, "%02d:%02d", mins, secs)
+        }
+    }
+
+    val stremioSession = remember { com.example.data.local.StremioAccountSession(context) }
+    val stremioAuthKey = remember { stremioSession.getAuthKey() }
+    val stremioApiClient = remember { com.example.data.api.StremioApiClient() }
+
+    // Initial playback position resume
+    LaunchedEffect(streamUrl) {
+        try {
+            val cleanShowId = if (mediaId.startsWith("tt") && mediaId.contains(":")) mediaId.substringBefore(":") else mediaId
+            val key = if (season != null && episode != null) "$cleanShowId:$season:$episode" else cleanShowId
+            val savedHistory = vaultRepository.getHistoryById(key) ?: vaultRepository.getHistoryById(cleanShowId)
+            if (savedHistory != null && savedHistory.positionMs > 2000L) {
+                val isFinished = savedHistory.durationMs > 0 && (savedHistory.positionMs.toFloat() / savedHistory.durationMs.toFloat()) >= 0.92f
+                if (!isFinished) {
+                    exoPlayer.seekTo(savedHistory.positionMs)
+                    Toast.makeText(context, "Resumed at ${formatTime(savedHistory.positionMs)}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore initial seek exception
+        }
+    }
+
     // Load series details for in-player episode switching
     LaunchedEffect(mediaId) {
         if (catalogRepository != null && season != null) {
             try {
-                val detail = catalogRepository.getMetaDetail("series", mediaId)
+                val cleanShowId = if (mediaId.startsWith("tt") && mediaId.contains(":")) mediaId.substringBefore(":") else mediaId
+                val detail = catalogRepository.getMetaDetail("series", cleanShowId)
                 seriesDetail = detail
             } catch (e: Exception) {
                 // Ignore detail load error in player
@@ -295,10 +330,11 @@ fun HarborPlayerScreen(
     // Position persistence every 4s
     LaunchedEffect(currentPositionMs) {
         if (durationMs > 0 && currentPositionMs > 2000) {
-            val key = if (season != null && episode != null) "$mediaId:$season:$episode" else mediaId
+            val cleanShowId = if (mediaId.startsWith("tt") && mediaId.contains(":")) mediaId.substringBefore(":") else mediaId
+            val key = if (season != null && episode != null) "$cleanShowId:$season:$episode" else cleanShowId
             vaultRepository.savePlaybackProgress(
                 id = key,
-                mediaId = mediaId,
+                mediaId = cleanShowId,
                 title = title,
                 type = if (season != null) "series" else "movie",
                 poster = poster,
@@ -308,7 +344,9 @@ fun HarborPlayerScreen(
                 episodeTitle = episodeTitle,
                 positionMs = currentPositionMs,
                 durationMs = durationMs,
-                streamUrl = streamUrl
+                streamUrl = streamUrl,
+                stremioAuthKey = stremioAuthKey,
+                apiClient = stremioApiClient
             )
         }
     }
@@ -318,18 +356,6 @@ fun HarborPlayerScreen(
         if (areControlsVisible && isPlaying && !showSubtitleDialog && !showAudioDialog && !showEpisodeDrawer) {
             delay(5000)
             areControlsVisible = false
-        }
-    }
-
-    fun formatTime(ms: Long): String {
-        val totalSecs = (ms / 1000).coerceAtLeast(0)
-        val hours = totalSecs / 3600
-        val mins = (totalSecs % 3600) / 60
-        val secs = totalSecs % 60
-        return if (hours > 0) {
-            String.format(Locale.ROOT, "%d:%02d:%02d", hours, mins, secs)
-        } else {
-            String.format(Locale.ROOT, "%02d:%02d", mins, secs)
         }
     }
 
@@ -962,7 +988,8 @@ fun HarborPlayerScreen(
                                                 if (streamResolverRepository != null && onSwitchStream != null) {
                                                     scope.launch {
                                                         isSwitchingEpisode = true
-                                                        val queryEpId = "${mediaId}:${ep.season ?: 1}:${ep.episode ?: 1}"
+                                                        val cleanShowId = if (mediaId.startsWith("tt") && mediaId.contains(":")) mediaId.substringBefore(":") else mediaId
+                                                        val queryEpId = "${cleanShowId}:${ep.season ?: 1}:${ep.episode ?: 1}"
                                                         val resolved = streamResolverRepository.resolveStreams("series", queryEpId)
                                                         if (resolved.isNotEmpty()) {
                                                             val topStream = resolved.first()

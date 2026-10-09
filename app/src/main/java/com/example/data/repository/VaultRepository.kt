@@ -22,6 +22,8 @@ class VaultRepository(
 
     fun isBookmarked(id: String): Flow<Boolean> = watchlistDao.isInWatchlist(id)
 
+    suspend fun getHistoryById(id: String): WatchHistoryEntity? = historyDao.getById(id)
+
     suspend fun savePlaybackProgress(
         id: String,
         mediaId: String,
@@ -34,7 +36,9 @@ class VaultRepository(
         episodeTitle: String? = null,
         positionMs: Long,
         durationMs: Long,
-        streamUrl: String?
+        streamUrl: String?,
+        stremioAuthKey: String? = null,
+        apiClient: com.example.data.api.StremioApiClient? = null
     ) {
         val entity = WatchHistoryEntity(
             id = id,
@@ -52,6 +56,23 @@ class VaultRepository(
             lastWatchedTimestamp = System.currentTimeMillis()
         )
         historyDao.upsert(entity)
+
+        if (!stremioAuthKey.isNullOrBlank() && apiClient != null) {
+            try {
+                apiClient.syncWatchStateToStremio(
+                    authKey = stremioAuthKey,
+                    mediaId = mediaId,
+                    title = title,
+                    type = type,
+                    season = season,
+                    episode = episode,
+                    positionMs = positionMs,
+                    durationMs = durationMs
+                )
+            } catch (e: Exception) {
+                // Ignore background sync errors
+            }
+        }
     }
 
     suspend fun toggleWatchlist(

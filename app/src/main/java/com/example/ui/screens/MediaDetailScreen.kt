@@ -145,35 +145,27 @@ fun MediaDetailScreen(
 
     val isBookmarked by vaultRepository.isBookmarked(mediaId).collectAsState(initial = false)
 
-    fun refreshStreams(targetDetail: StremioMetaDetail) {
+    fun refreshStreams(targetDetail: StremioMetaDetail, targetEpisode: StremioVideo? = null) {
         scope.launch {
             isLoadingStreams = true
             try {
                 val isSeries = targetDetail.type == "series" || targetDetail.type == "tv"
-                val streamQueryId = if (isSeries && selectedEpisode != null) {
-                    val ep = selectedEpisode!!
-                    val s = ep.season ?: 1
+                val ep = targetEpisode ?: selectedEpisode
+                val cleanShowId = if (targetDetail.id.startsWith("tt") && targetDetail.id.contains(":")) targetDetail.id.substringBefore(":") else targetDetail.id
+                val streamQueryId = if (isSeries && ep != null) {
+                    val s = ep.season ?: selectedSeason
                     val e = ep.episode ?: 1
-                    val epId = ep.id
-                    if (epId.startsWith("tt") && epId.count { it == ':' } >= 2) {
-                        epId
-                    } else if (targetDetail.id.startsWith("tt")) {
-                        "${targetDetail.id}:$s:$e"
-                    } else if (epId.contains(":")) {
-                        epId
-                    } else {
-                        "${targetDetail.id}:$s:$e"
-                    }
+                    "$cleanShowId:$s:$e"
                 } else {
-                    targetDetail.id
+                    cleanShowId
                 }
                 val streamType = if (isSeries) "series" else "movie"
                 Log.d("MediaDetailScreen", "Querying streams type: $streamType with ID: $streamQueryId for ${targetDetail.name}")
                 val resolved = streamResolverRepository.resolveStreams(streamType, streamQueryId)
 
                 val allStreams = resolved.toMutableList()
-                if (selectedEpisode?.stream != null) {
-                    val epStream = selectedEpisode!!.stream!!
+                if (ep?.stream != null) {
+                    val epStream = ep.stream!!
                     val parsed = HarborStreamParser.parse(epStream, "Official Stream")
                     if (allStreams.none { it.rawStream.url == epStream.url }) {
                         allStreams.add(0, parsed)
@@ -189,31 +181,29 @@ fun MediaDetailScreen(
         }
     }
 
-    fun autoPlayBestStream(targetDetail: StremioMetaDetail) {
+    fun autoPlayBestStream(targetDetail: StremioMetaDetail, targetEpisode: StremioVideo? = null) {
         scope.launch {
             isLoadingStreams = true
-            var availableStreams = streams
-            if (availableStreams.isEmpty()) {
-                val isSeries = targetDetail.type == "series" || targetDetail.type == "tv"
-                val ep = selectedEpisode ?: targetDetail.videos?.firstOrNull()
-                val streamQueryId = if (isSeries && ep != null) {
-                    val s = ep.season ?: 1
-                    val e = ep.episode ?: 1
-                    if (ep.id.startsWith("tt") && ep.id.count { it == ':' } >= 2) ep.id else "${targetDetail.id}:$s:$e"
-                } else {
-                    targetDetail.id
-                }
-                val streamType = if (isSeries) "series" else "movie"
-                availableStreams = streamResolverRepository.resolveStreams(streamType, streamQueryId)
-                streams = availableStreams
+            val ep = targetEpisode ?: selectedEpisode ?: targetDetail.videos?.firstOrNull()
+            val isSeries = targetDetail.type == "series" || targetDetail.type == "tv"
+            val cleanShowId = if (targetDetail.id.startsWith("tt") && targetDetail.id.contains(":")) targetDetail.id.substringBefore(":") else targetDetail.id
+            val streamQueryId = if (isSeries && ep != null) {
+                val s = ep.season ?: selectedSeason
+                val e = ep.episode ?: 1
+                "$cleanShowId:$s:$e"
+            } else {
+                cleanShowId
             }
+            val streamType = if (isSeries) "series" else "movie"
+            Log.d("MediaDetailScreen", "Auto-play querying streams for episode $streamQueryId")
+            val availableStreams = streamResolverRepository.resolveStreams(streamType, streamQueryId)
+            streams = availableStreams
             isLoadingStreams = false
 
             if (availableStreams.isNotEmpty()) {
                 val topStream = availableStreams.first()
-                val ep = selectedEpisode ?: targetDetail.videos?.firstOrNull()
-                val epTitle = if (targetDetail.type == "series" && ep != null) {
-                    "S${ep.season ?: 1}:E${ep.episode ?: 1} - ${ep.title ?: "Episode 1"}"
+                val epTitle = if (isSeries && ep != null) {
+                    "S${ep.season ?: selectedSeason}:E${ep.episode ?: 1} - ${ep.title ?: "Episode"}"
                 } else null
 
                 val directUrl = topStream.rawStream.url
@@ -227,9 +217,9 @@ fun MediaDetailScreen(
                     onPlayStream(
                         targetDetail.name,
                         directUrl,
-                        targetDetail.id,
-                        ep?.season ?: if (targetDetail.type == "series") 1 else null,
-                        ep?.episode ?: if (targetDetail.type == "series") 1 else null,
+                        cleanShowId,
+                        ep?.season ?: if (isSeries) selectedSeason else null,
+                        ep?.episode ?: if (isSeries) 1 else null,
                         epTitle,
                         targetDetail.poster,
                         targetDetail.background
@@ -242,9 +232,9 @@ fun MediaDetailScreen(
                         onPlayStream(
                             targetDetail.name,
                             res.getOrThrow(),
-                            targetDetail.id,
-                            ep?.season ?: if (targetDetail.type == "series") 1 else null,
-                            ep?.episode ?: if (targetDetail.type == "series") 1 else null,
+                            cleanShowId,
+                            ep?.season ?: if (isSeries) selectedSeason else null,
+                            ep?.episode ?: if (isSeries) 1 else null,
                             epTitle,
                             targetDetail.poster,
                             targetDetail.background
@@ -261,7 +251,7 @@ fun MediaDetailScreen(
                     Toast.makeText(context, "Link Torrentio or Stremio account to play real streams!", Toast.LENGTH_LONG).show()
                     showTorrentioSetup = true
                 } else {
-                    Toast.makeText(context, "No active streams found for this title", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "No active streams found for $streamQueryId", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -750,13 +740,15 @@ fun MediaDetailScreen(
                             onSelect = {
                                 Log.d("MediaDetailScreen", "Episode clicked: ${ep.id} - Auto-playing episode")
                                 selectedEpisode = ep
-                                autoPlayBestStream(item)
+                                streams = emptyList()
+                                autoPlayBestStream(item, ep)
                             },
                             onViewStreams = {
                                 Log.d("MediaDetailScreen", "Episode Streams clicked: ${ep.id} - Opening stream sheet")
                                 selectedEpisode = ep
+                                streams = emptyList()
                                 showEpisodeStreamSheet = true
-                                refreshStreams(item)
+                                refreshStreams(item, ep)
                             }
                         )
                     }

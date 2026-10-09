@@ -148,9 +148,9 @@ class StreamResolverRepository(
         val enabledAddons = addonRepository.getEnabledAddons().filter { it.supportsStream }.toMutableList()
 
         val defaultScraperUrl = if (!activeDebridKey.isNullOrBlank()) {
-            "https://torrentio.strem.fun/realdebrid=$activeDebridKey|providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,nyaasi|sort=qualitysize|limit=30/manifest.json"
+            "https://torrentio.strem.fun/realdebrid=$activeDebridKey|sort=qualityseeders|limit=25/manifest.json"
         } else {
-            "https://torrentio.strem.fun/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,nyaasi|sort=qualitysize|limit=30/manifest.json"
+            "https://torrentio.strem.fun/sort=qualityseeders|limit=25/manifest.json"
         }
 
         // If Torrentio is linked or user set a custom Torrentio URL, ensure it's in the resolution pipeline
@@ -190,36 +190,38 @@ class StreamResolverRepository(
         coroutineScope {
             val deferreds = enabledAddons.map { addon ->
                 async {
-                    var addonUrl = addon.manifestUrl
-                    // If bare Torrentio manifest, upgrade to multi-provider scraper url
-                    if (addonUrl == "https://torrentio.strem.fun/manifest.json") {
-                        addonUrl = defaultScraperUrl
-                    }
-                    val result = apiClient.fetchStreams(addonUrl, resolvedType, id)
-                    if (result.isSuccess) {
-                        result.getOrNull()?.mapNotNull { rawItem ->
-                            // Discard YouTube previews/trailers
-                            if (!rawItem.ytId.isNullOrBlank()) return@mapNotNull null
+                    kotlinx.coroutines.withTimeoutOrNull(4500L) {
+                        var addonUrl = addon.manifestUrl
+                        // If bare Torrentio manifest, upgrade to optimized scraper url
+                        if (addonUrl == "https://torrentio.strem.fun/manifest.json") {
+                            addonUrl = defaultScraperUrl
+                        }
+                        val result = apiClient.fetchStreams(addonUrl, resolvedType, id)
+                        if (result.isSuccess) {
+                            result.getOrNull()?.mapNotNull { rawItem ->
+                                // Discard YouTube previews/trailers
+                                if (!rawItem.ytId.isNullOrBlank()) return@mapNotNull null
 
-                            // Discard non-torrent web store or purchase redirect links
-                            if (!rawItem.externalUrl.isNullOrBlank() && rawItem.infoHash.isNullOrBlank() && (rawItem.url == null || !rawItem.url.startsWith("magnet:"))) {
-                                return@mapNotNull null
-                            }
+                                // Discard non-torrent web store or purchase redirect links
+                                if (!rawItem.externalUrl.isNullOrBlank() && rawItem.infoHash.isNullOrBlank() && (rawItem.url == null || !rawItem.url.startsWith("magnet:"))) {
+                                    return@mapNotNull null
+                                }
 
-                            // Strict verification: Must link to a real torrent or Debrid-resolved stream
-                            val hasInfoHash = !rawItem.infoHash.isNullOrBlank()
-                            val hasMagnet = !rawItem.url.isNullOrBlank() && rawItem.url.startsWith("magnet:")
-                            val hasDirectDebridStream = !rawItem.url.isNullOrBlank() && (rawItem.url.startsWith("http://") || rawItem.url.startsWith("https://"))
+                                // Strict verification: Must link to a real torrent or Debrid-resolved stream
+                                val hasInfoHash = !rawItem.infoHash.isNullOrBlank()
+                                val hasMagnet = !rawItem.url.isNullOrBlank() && rawItem.url.startsWith("magnet:")
+                                val hasDirectDebridStream = !rawItem.url.isNullOrBlank() && (rawItem.url.startsWith("http://") || rawItem.url.startsWith("https://"))
 
-                            if (hasInfoHash || hasMagnet || hasDirectDebridStream) {
-                                HarborStreamParser.parse(rawItem, addon.name)
-                            } else {
-                                null
-                            }
-                        } ?: emptyList()
-                    } else {
-                        emptyList()
-                    }
+                                if (hasInfoHash || hasMagnet || hasDirectDebridStream) {
+                                    HarborStreamParser.parse(rawItem, addon.name)
+                                } else {
+                                    null
+                                }
+                            } ?: emptyList()
+                        } else {
+                            emptyList()
+                        }
+                    } ?: emptyList()
                 }
             }
 

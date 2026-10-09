@@ -29,8 +29,8 @@ import java.util.concurrent.TimeUnit
 class StremioApiClient {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
         .followRedirects(true)
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
@@ -521,6 +521,57 @@ class StremioApiClient {
             }
         } else {
             Result.failure(res.exceptionOrNull() ?: Exception("Cannot connect to Torrentio manifest at $clean"))
+        }
+    }
+
+    /**
+     * Pushes active watch state/progress back to Stremio Cloud Datastore
+     */
+    suspend fun syncWatchStateToStremio(
+        authKey: String,
+        mediaId: String,
+        title: String,
+        type: String,
+        season: Int?,
+        episode: Int?,
+        positionMs: Long,
+        durationMs: Long
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (authKey.isBlank()) return@withContext false
+        try {
+            val key = if (season != null && episode != null) "$mediaId:$season:$episode" else mediaId
+            val stateObj = org.json.JSONObject().apply {
+                put("timeOffset", positionMs / 1000L)
+                put("duration", durationMs / 1000L)
+                put("video_id", key)
+                if (season != null) put("season", season)
+                if (episode != null) put("episode", episode)
+            }
+            val changeObj = org.json.JSONObject().apply {
+                put("_id", key)
+                put("type", type)
+                put("name", title)
+                put("mtime", System.currentTimeMillis())
+                put("state", stateObj)
+            }
+            val jsonBody = org.json.JSONObject().apply {
+                put("authKey", authKey.trim())
+                put("collection", "watchState")
+                put("changes", org.json.JSONArray().put(changeObj))
+            }.toString()
+
+            val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val request = Request.Builder()
+                .url("https://api.strem.io/api/datastorePut")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("StremioApiClient", "Failed to sync watch state to Stremio: ${e.message}")
+            false
         }
     }
 }
