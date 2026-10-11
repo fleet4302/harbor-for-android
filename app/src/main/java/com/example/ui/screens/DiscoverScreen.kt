@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -25,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -33,7 +34,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,7 +133,7 @@ fun DiscoverScreen(
         fetchInitialCatalog()
     }
 
-    // Function to load next page (pagination)
+    // Function to load next page
     val fetchNextPage = {
         if (!isFetchingMoreCatalog) {
             isFetchingMoreCatalog = true
@@ -156,7 +157,7 @@ fun DiscoverScreen(
         }
     }
 
-    // Auto-prefetch when reaching near bottom of grid
+    // Auto-prefetch when reaching near bottom
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = gridState.layoutInfo.totalItemsCount
@@ -201,79 +202,47 @@ fun DiscoverScreen(
             }
             .testTag("discover_screen")
     ) {
-        // TOP FLOATING HEADER BAR: TV Shows & Movies Tabs aligned with Search & Settings
+        // RETRO EARLY 2000S SOFTWARE TOP HEADER BAR
+        // Contains ONLY TV Shows & Movies tab toggles (No Search/Settings buttons)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .background(theme.surface)
+                .border(BorderStroke(1.dp, theme.surfaceVariant))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Pills Group for TV Shows & Movies
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PillButton(
-                    title = "TV Shows",
-                    isSelected = activePillTab == "tv_shows",
-                    onClick = {
-                        if (activePillTab != "tv_shows") {
-                            activePillTab = "tv_shows"
-                            multiSelectedCategories = emptySet()
-                            searchQuery = ""
-                        }
+            RetroTabButton(
+                title = "[ TV SHOWS ]",
+                isSelected = activePillTab == "tv_shows",
+                onClick = {
+                    if (activePillTab != "tv_shows") {
+                        activePillTab = "tv_shows"
+                        multiSelectedCategories = emptySet()
+                        searchQuery = ""
                     }
-                )
-                PillButton(
-                    title = "Movies",
-                    isSelected = activePillTab == "movies",
-                    onClick = {
-                        if (activePillTab != "movies") {
-                            activePillTab = "movies"
-                            multiSelectedCategories = emptySet()
-                            searchQuery = ""
-                        }
+                }
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            RetroTabButton(
+                title = "[ MOVIES ]",
+                isSelected = activePillTab == "movies",
+                onClick = {
+                    if (activePillTab != "movies") {
+                        activePillTab = "movies"
+                        multiSelectedCategories = emptySet()
+                        searchQuery = ""
                     }
-                )
-            }
-
-            // Right Action Bubbles (Search & Settings)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.surfaceVariant)
-                        .clickable { onOpenSearch() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.surfaceVariant)
-                        .clickable { onOpenSettings() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = if (activePillTab == "tv_shows") "MODE: SERIES_CATALOG" else "MODE: MOVIE_CATALOG",
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                color = theme.secondary
+            )
         }
 
         // MAIN CONTENT AREA GRID
@@ -282,7 +251,16 @@ fun DiscoverScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = theme.primary, modifier = Modifier.size(36.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = theme.primary, modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "CONNECTING TO CATALOG DATABASE...",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.primary
+                    )
+                }
             }
         } else {
             LazyVerticalGrid(
@@ -290,10 +268,10 @@ fun DiscoverScreen(
                 columns = GridCells.Adaptive(minSize = 115.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(bottom = 40.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 12.dp),
+                contentPadding = PaddingValues(top = 10.dp, bottom = 40.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Section 1: Continue Watching Row (if user has active history for this type)
                 if (currentContinueWatching.isNotEmpty()) {
@@ -301,48 +279,35 @@ fun DiscoverScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 8.dp)
+                                .background(theme.surface)
+                                .border(BorderStroke(1.dp, theme.primary.copy(alpha = 0.4f)), RoundedCornerShape(2.dp))
+                                .padding(8.dp)
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text(
-                                        text = "Continue Watching",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        text = if (activePillTab == "tv_shows") "Resume your TV series" else "Resume your movies",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(theme.primary.copy(alpha = 0.15f))
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        text = "${currentContinueWatching.size} in progress",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = theme.primary
-                                    )
-                                }
+                                Text(
+                                    text = "► CONTINUE WATCHING (${currentContinueWatching.size})",
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = theme.primary
+                                )
+                                Text(
+                                    text = if (activePillTab == "tv_shows") "SERIES_RESUME" else "MOVIE_RESUME",
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = theme.secondary
+                                )
                             }
 
                             LazyRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 items(currentContinueWatching) { history ->
                                     val posterUrl = history.poster ?: if (history.mediaId.startsWith("tt")) {
@@ -372,38 +337,42 @@ fun DiscoverScreen(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 }
 
                 // Section 2: Search Input & Category Filters
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
                             placeholder = {
                                 Text(
-                                    text = if (activePillTab == "tv_shows") "Search TV shows..." else "Search movies...",
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = if (activePillTab == "tv_shows") "FILTER_SERIES_CATALOG..." else "FILTER_MOVIES_CATALOG...",
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = theme.secondary
                                 )
                             },
                             leadingIcon = {
-                                Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = theme.primary, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = theme.primary, modifier = Modifier.size(16.dp))
                             },
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
                                     IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = Color.White, modifier = Modifier.size(14.dp))
                                     }
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(12.dp),
+                                .padding(vertical = 2.dp),
+                            shape = RoundedCornerShape(2.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = theme.primary,
                                 unfocusedBorderColor = theme.surfaceVariant,
@@ -417,21 +386,22 @@ fun DiscoverScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .padding(top = 4.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 2.dp, vertical = 2.dp),
+                                    .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(imageVector = Icons.Default.FilterList, contentDescription = "Filter", tint = theme.primary, modifier = Modifier.size(14.dp))
+                                    Icon(imageVector = Icons.Default.FilterList, contentDescription = "Filter", tint = theme.primary, modifier = Modifier.size(12.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = if (multiSelectedCategories.isEmpty()) "Multi-Category Filter:" else "Matching ALL (${multiSelectedCategories.joinToString(" + ")})",
-                                        fontSize = 11.sp,
+                                        text = if (multiSelectedCategories.isEmpty()) "GENRE_FILTER [ ALL ]" else "MATCH [ ${multiSelectedCategories.joinToString(" + ")} ]",
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
                                         color = theme.primary
                                     )
@@ -442,7 +412,7 @@ fun DiscoverScreen(
                                         onClick = { multiSelectedCategories = emptySet() },
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Clear", fontSize = 11.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                                        Text("[ RESET ]", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -451,15 +421,16 @@ fun DiscoverScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState())
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 categories.forEach { category ->
                                     val isSelected = multiSelectedCategories.contains(category)
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(18.dp))
-                                            .background(if (isSelected) theme.primary else theme.surfaceVariant)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(if (isSelected) theme.primary else theme.surface)
+                                            .border(BorderStroke(1.dp, if (isSelected) theme.primary else theme.surfaceVariant))
                                             .clickable {
                                                 multiSelectedCategories = if (isSelected) {
                                                     multiSelectedCategories - category
@@ -467,7 +438,7 @@ fun DiscoverScreen(
                                                     multiSelectedCategories + category
                                                 }
                                             }
-                                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (isSelected) {
@@ -475,13 +446,14 @@ fun DiscoverScreen(
                                                     imageVector = Icons.Default.Check,
                                                     contentDescription = "Selected",
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(12.dp)
+                                                    modifier = Modifier.size(11.dp)
                                                 )
-                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Spacer(modifier = Modifier.width(3.dp))
                                             }
                                             Text(
                                                 text = category,
                                                 fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                                 color = if (isSelected) Color.Black else Color.White
                                             )
@@ -508,12 +480,12 @@ fun DiscoverScreen(
                     )
                 }
 
-                // Section 4: Enhanced Load More Option & Animation
+                // Section 4: Retro Software Load More Panel
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 28.dp),
+                            .padding(top = 12.dp, bottom = 24.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isFetchingMoreCatalog) {
@@ -521,30 +493,31 @@ fun DiscoverScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(theme.surfaceVariant)
-                                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                                    .background(theme.surface)
+                                    .border(BorderStroke(1.dp, theme.primary))
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(14.dp),
                                     color = theme.primary,
-                                    strokeWidth = 2.5.dp
+                                    strokeWidth = 2.dp
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Loading more titles...",
-                                    fontSize = 12.sp,
+                                    text = "FETCHING_NEXT_PAGE...",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = theme.primary
                                 )
                             }
                         } else {
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(theme.primary.copy(alpha = 0.15f))
+                                    .background(theme.surface)
+                                    .border(BorderStroke(1.dp, theme.primary))
                                     .clickable { fetchNextPage() }
-                                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                                    .padding(horizontal = 18.dp, vertical = 8.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -554,12 +527,13 @@ fun DiscoverScreen(
                                         imageVector = Icons.Default.Refresh,
                                         contentDescription = "Load More",
                                         tint = theme.primary,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Load More Titles (${displayedItems.size} shown)",
-                                        fontSize = 12.sp,
+                                        text = "[ LOAD MORE TITLES (${displayedItems.size} LOADED) ]",
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
                                         color = theme.primary
                                     )
@@ -606,7 +580,7 @@ fun DiscoverScreen(
 }
 
 @Composable
-private fun PillButton(
+private fun RetroTabButton(
     title: String,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -614,16 +588,17 @@ private fun PillButton(
     val theme = LocalHarborTheme.current
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
             .background(if (isSelected) theme.primary else theme.surfaceVariant)
+            .border(BorderStroke(1.dp, if (isSelected) theme.primary else theme.surfaceVariant))
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
         Text(
             text = title,
             color = if (isSelected) Color.Black else Color.White,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold
         )
     }
 }

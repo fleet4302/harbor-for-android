@@ -172,9 +172,13 @@ fun HarborApp() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        if (currentNavTab != HarborNavTab.SEARCH) {
+                        if (currentNavTab != HarborNavTab.DISCOVER && currentNavTab != HarborNavTab.SEARCH) {
                             HarborTopBar(
-                                title = "",
+                                title = when (currentNavTab) {
+                                    HarborNavTab.VAULT -> "Vault"
+                                    HarborNavTab.SETTINGS -> "Settings"
+                                    else -> ""
+                                },
                                 onSearchClick = { currentNavTab = HarborNavTab.SEARCH },
                                 onSettingsClick = { currentNavTab = HarborNavTab.SETTINGS }
                             )

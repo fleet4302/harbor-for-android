@@ -484,11 +484,7 @@ class StremioApiClient {
                     val m = rawM.toLong()
                     if (m > 0) lastWatched = m
                 } else if (rawM is String) {
-                    try {
-                        lastWatched = java.time.Instant.parse(rawM).toEpochMilli()
-                    } catch (e: Exception) {
-                        rawM.toLongOrNull()?.let { if (it > 0) lastWatched = it }
-                    }
+                    lastWatched = parseIsoToEpochMilli(rawM)
                 }
             }
 
@@ -628,6 +624,19 @@ class StremioApiClient {
         } catch (e: Exception) {
             Log.e("StremioApiClient", "Failed to sync watch state to Stremio: ${e.message}")
             false
+        }
+    }
+
+    private fun parseIsoToEpochMilli(isoString: String): Long {
+        return try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }
+            val clean = isoString.substringBefore(".").substringBefore("Z")
+            val date = sdf.parse(clean)
+            date?.time ?: (isoString.toLongOrNull() ?: System.currentTimeMillis())
+        } catch (e: Exception) {
+            isoString.toLongOrNull() ?: System.currentTimeMillis()
         }
     }
 }

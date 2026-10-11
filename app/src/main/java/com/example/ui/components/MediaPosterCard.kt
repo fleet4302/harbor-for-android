@@ -67,18 +67,19 @@ fun MediaPosterCard(
                 onClick = onClick,
                 onLongClick = { showContextMenu = true }
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(4.dp),
         colors = CardDefaults.cardColors(
             containerColor = theme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, theme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(190.dp)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                    .height(185.dp)
+                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                     .background(theme.surfaceVariant)
             ) {
                 val imageUrl = media.poster ?: media.banner ?: media.background ?: if (media.id.startsWith("tt")) {

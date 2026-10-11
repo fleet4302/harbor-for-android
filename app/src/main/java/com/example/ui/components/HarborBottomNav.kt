@@ -52,41 +52,41 @@ fun HarborBottomNav(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(theme.surface.copy(alpha = 0.98f))
+            .background(theme.surface)
             .navigationBarsPadding()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 8.dp),
+                .padding(vertical = 8.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
             HarborNavTab.entries.forEach { tab ->
                 val isSelected = currentTab == tab
-                val iconColor = if (isSelected) theme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                val textColor = if (isSelected) theme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                val iconColor = if (isSelected) theme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                val textColor = if (isSelected) theme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
 
                 Column(
                     modifier = Modifier
                         .testTag("nav_tab_${tab.name.lowercase()}")
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) theme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (isSelected) theme.surfaceVariant else Color.Transparent)
                         .clickable { onTabSelected(tab) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
                         imageVector = tab.icon,
                         contentDescription = tab.title,
                         tint = iconColor,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = tab.title,
                         fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = textColor,
                         maxLines = 1
                     )

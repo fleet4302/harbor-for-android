@@ -13,24 +13,24 @@ enum class HarborThemeStyle(
     val accentGlow: Color
 ) {
     BLACK_PASTEL_WHITE(
-        title = "Black & Pastel White",
-        subtitle = "Pure Pitch Black & Soft Pastel White Accent",
-        background = Color(0xFF000000),
-        surface = Color(0xFF0E0E10),
-        surfaceVariant = Color(0xFF1A1A1E),
-        primary = Color(0xFFF3F4F6),
-        secondary = Color(0xFFE5E7EB),
-        accentGlow = Color(0xFFFAFAFA)
+        title = "Retro 2000s Software",
+        subtitle = "Classic Early 2000s Desktop GUI & Charcoal Steel",
+        background = Color(0xFF14161B),
+        surface = Color(0xFF1F232B),
+        surfaceVariant = Color(0xFF2A2F3A),
+        primary = Color(0xFF00A0FF),
+        secondary = Color(0xFF94A3B8),
+        accentGlow = Color(0xFF38BDF8)
     ),
     BLACK_PASTEL_GREY(
-        title = "Black & Light Pastel Grey",
-        subtitle = "Pure Pitch Black & Light Pastel Grey Accent",
-        background = Color(0xFF000000),
-        surface = Color(0xFF0E0E10),
-        surfaceVariant = Color(0xFF18181B),
-        primary = Color(0xFFD1D5DB),
-        secondary = Color(0xFF9CA3AF),
-        accentGlow = Color(0xFFE2E8F0)
+        title = "Win2K Dark Metallic",
+        subtitle = "Dark Metallic Slate & Classic Silver Insets",
+        background = Color(0xFF111317),
+        surface = Color(0xFF1B1E24),
+        surfaceVariant = Color(0xFF252932),
+        primary = Color(0xFF3B82F6),
+        secondary = Color(0xFFCBD5E1),
+        accentGlow = Color(0xFF60A5FA)
     ),
     ABYSS(
         title = "Obsidian Glow",
